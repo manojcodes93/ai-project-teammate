@@ -325,14 +325,24 @@ def render_output_panel(result=None):
             min-height: 400px;
         ">
             <div style="display: flex; justify-content: flex-end; margin-bottom: 16px;">
-                <span style="
-                    background-color: #21262d;
-                    color: #8b949e;
-                    padding: 6px 12px;
-                    border-radius: 6px;
-                    font-size: 12px;
-                    cursor: pointer;
-                ">Copy to Clipboard</span>
+                <button onclick="
+                navigator.clipboard.writeText(this.getAttribute('data-text')).then(() => {{
+                    this.innerText = 'Copied!';
+                    this.style.color = '#3fb950';
+                    setTimeout(() => {{
+                        this.innerText = 'Copy to Clipboard';
+                        this.style.color = '#8b949e';
+                    }}, 2000);
+                }})
+            " data-text="{result}" style="
+                background-color: #21262d;
+                color: #8b949e;
+                padding: 6px 12px;
+                border-radius: 6px;
+                font-size: 12px;
+                cursor: pointer;
+                border: 1px solid #30363d;
+            ">Copy to Clipboard</button>
             </div>
             <div style="color: #e6edf3; font-size: 14px; line-height: 1.8;">
                 {result}
