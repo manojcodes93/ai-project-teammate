@@ -136,7 +136,7 @@ def apply_custom_css():
         fill: #ffffff !important;
     }
 
-    .block-container { padding-top: 1rem !important; }
+    .block-container { padding-top: 2.5rem !important; }
 
     /* ---- Scrollbar ---- */
     ::-webkit-scrollbar { width: 6px; }

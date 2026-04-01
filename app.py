@@ -54,14 +54,6 @@ elif page == "AI Teammates":
     col1, col2 = st.columns([4, 6])
 
     with col1:
-        st.markdown("""
-        <div style="background-color: #161b22; border: 1px solid #30363d; 
-                    border-radius: 8px; padding: 20px;">
-            <h3 style="font-size: 15px; font-weight: 600; color: #e6edf3; margin: 0 0 16px 0;">
-                Configure Your Request
-            </h3>
-        </div>
-        """, unsafe_allow_html=True)
 
         project_idea = st.text_input(
             "Project Idea",
