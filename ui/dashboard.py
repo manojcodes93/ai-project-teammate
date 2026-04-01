@@ -112,7 +112,30 @@ def apply_custom_css():
     }
 
     /* ---- Hide default streamlit elements ---- */
-    #MainMenu, footer, header { visibility: hidden; }
+    #MainMenu, footer { visibility: hidden; }
+
+    /* ---- Make sidebar reopen arrow visible ---- */
+    [data-testid="collapsedControl"] {
+        background-color: #161b22 !important;
+        border: 1px solid #30363d !important;
+        border-radius: 0 6px 6px 0 !important;
+        visibility: visible !important;
+        display: flex !important;
+    }
+
+    [data-testid="collapsedControl"] svg {
+        fill: #8b949e !important;
+    }
+
+    [data-testid="collapsedControl"]:hover {
+        background-color: #21262d !important;
+        border-color: #238636 !important;
+    }
+
+    [data-testid="collapsedControl"]:hover svg {
+        fill: #ffffff !important;
+    }
+
     .block-container { padding-top: 1rem !important; }
 
     /* ---- Scrollbar ---- */

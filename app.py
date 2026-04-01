@@ -16,8 +16,8 @@ from ui.dashboard import (
 
 st.set_page_config(
     page_title="BuildWithCrew",
-    page_icon="🛠️",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 apply_custom_css()

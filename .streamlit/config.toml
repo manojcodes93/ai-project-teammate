@@ -1,0 +1,12 @@
+[server]
+headless = false
+
+[ui]
+hideSidebarNav = false
+
+[theme]
+base = "dark"
+backgroundColor = "#0e1117"
+secondaryBackgroundColor = "#161b22"
+primaryColor = "#238636"
+textColor = "#e6edf3"
