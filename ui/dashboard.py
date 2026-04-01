@@ -316,7 +316,7 @@ def render_output_panel(result=None):
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.markdown(f"""
+        st.markdown("""
         <div style="
             background-color: #161b22;
             border: 1px solid #30363d;
@@ -324,32 +324,11 @@ def render_output_panel(result=None):
             padding: 24px;
             min-height: 400px;
         ">
-            <div style="display: flex; justify-content: flex-end; margin-bottom: 16px;">
-                <button onclick="
-                navigator.clipboard.writeText(this.getAttribute('data-text')).then(() => {{
-                    this.innerText = 'Copied!';
-                    this.style.color = '#3fb950';
-                    setTimeout(() => {{
-                        this.innerText = 'Copy to Clipboard';
-                        this.style.color = '#8b949e';
-                    }}, 2000);
-                }})
-            " data-text="{result}" style="
-                background-color: #21262d;
-                color: #8b949e;
-                padding: 6px 12px;
-                border-radius: 6px;
-                font-size: 12px;
-                cursor: pointer;
-                border: 1px solid #30363d;
-            ">Copy to Clipboard</button>
-            </div>
-            <div style="color: #e6edf3; font-size: 14px; line-height: 1.8;">
-                {result}
-            </div>
-        </div>
         """, unsafe_allow_html=True)
 
+        st.markdown(result)
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
 def render_review_output(result=None):
     if result is None:
