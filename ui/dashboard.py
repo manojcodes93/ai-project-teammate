@@ -110,6 +110,23 @@ def apply_custom_css():
         background-color: #2ea043 !important;
         box-shadow: 0 0 12px rgba(46, 160, 67, 0.4) !important;
     }
+    
+    /* ---- Selectbox cursor pointer ---- */
+    .stSelectbox div[data-baseweb="select"] {
+        cursor: pointer !important;
+    }
+
+    .stSelectbox div[data-baseweb="select"] * {
+        cursor: pointer !important;
+    }
+                
+    div[data-baseweb="select"] {
+        cursor: pointer !important;
+    }
+
+    div[data-baseweb="select"] * {
+        cursor: pointer !important;
+    }
 
     /* ---- Hide default streamlit elements ---- */
     #MainMenu, footer { visibility: hidden; }
