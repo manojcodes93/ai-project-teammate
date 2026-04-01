@@ -148,20 +148,82 @@ elif page == "Code Reviewer":
                 st.session_state.review_output = result
 
         if "review_output" in st.session_state:
+            raw = st.session_state.review_output
+
+            # Parse sections
+            bugs = ""
+            optimizations = ""
+            best_practices = ""
+
+            if "BUGS:" in raw:
+                bugs = raw.split("BUGS:")[1].split("OPTIMIZATIONS:")[0].strip()
+            if "OPTIMIZATIONS:" in raw:
+                optimizations = raw.split("OPTIMIZATIONS:")[1].split("BEST PRACTICES:")[0].strip()
+            if "BEST PRACTICES:" in raw:
+                best_practices = raw.split("BEST PRACTICES:")[1].split("CORRECTED CODE:")[0].strip()
+            if "CORRECTED CODE:" in raw:
+                corrected = raw.split("CORRECTED CODE:")[1].strip()
+                # Clean up backticks
+                corrected = corrected.replace("```python", "").replace("```", "").strip()
+            else:
+                corrected = ""
+
+            # Bugs section
             st.markdown(f"""
-            <div style="background-color: #161b22; border: 1px solid #30363d;
-                        border-radius: 8px; padding: 20px;">
-                <div style="background-color: #1a1e24; border: 1px solid #da3633;
-                            border-radius: 6px; padding: 16px; margin-bottom: 12px;">
-                    <p style="color: #f85149; font-size: 13px; font-weight: 600; margin: 0 0 8px 0;">
-                        Bugs Found
-                    </p>
-                    <div style="color: #e6edf3; font-size: 13px; line-height: 1.8;">
-                        {st.session_state.review_output}
-                    </div>
+            <div style="background-color: #1a1e24; border: 1px solid #da3633;
+                        border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                <p style="color: #f85149; font-size: 13px; font-weight: 700; margin: 0 0 10px 0;">
+                    Bugs Found
+                </p>
+                <div style="color: #e6edf3; font-size: 13px; line-height: 1.8;">
+                    {bugs if bugs else "No bugs found"}
                 </div>
             </div>
             """, unsafe_allow_html=True)
+
+            # Optimizations section
+            st.markdown(f"""
+            <div style="background-color: #1a1e0a; border: 1px solid #d29922;
+                        border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                <p style="color: #e3b341; font-size: 13px; font-weight: 700; margin: 0 0 10px 0;">
+                    Optimizations
+                </p>
+                <div style="color: #e6edf3; font-size: 13px; line-height: 1.8;">
+                    {optimizations if optimizations else "No optimizations needed"}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Best practices section
+            st.markdown(f"""
+            <div style="background-color: #0a1a0a; border: 1px solid #238636;
+                        border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                <p style="color: #3fb950; font-size: 13px; font-weight: 700; margin: 0 0 10px 0;">
+                    Best Practices
+                </p>
+                <div style="color: #e6edf3; font-size: 13px; line-height: 1.8;">
+                    {best_practices if best_practices else "Code follows best practices"}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown(f"""
+            <div style="background-color: #0d1117; border: 1px solid #1f6feb;
+                        border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                <p style="color: #58a6ff; font-size: 13px; font-weight: 700; margin: 0 0 10px 0;">
+                    Corrected Code
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            if corrected:
+                st.code(corrected, language="python")
+            else:
+                st.markdown("""
+                <p style="color: #8b949e; font-size: 13px;">
+                    No corrections needed.
+                </p>
+                """, unsafe_allow_html=True)
         else:
             st.markdown("""
             <div style="background-color: #161b22; border: 1px solid #30363d;
