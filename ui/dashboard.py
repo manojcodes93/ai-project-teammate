@@ -316,19 +316,18 @@ def render_output_panel(result=None):
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.markdown("""
+        st.markdown(f"""
         <div style="
             background-color: #161b22;
             border: 1px solid #30363d;
             border-radius: 8px;
             padding: 24px;
             min-height: 400px;
+            overflow-wrap: break-word;
         ">
+        {result}
+        </div>
         """, unsafe_allow_html=True)
-
-        st.markdown(result)
-
-        st.markdown("</div>", unsafe_allow_html=True)
 
 def render_review_output(result=None):
     if result is None:
