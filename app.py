@@ -1,5 +1,6 @@
 import streamlit as st
 from agents.product_manager import run_product_manager
+from utils.helpers import init_db, save_to_history, get_history, delete_history_item, clear_all_history
 from agents.developer import run_developer
 from agents.tester import run_tester
 from agents.reviewer import run_reviewer
@@ -21,12 +22,13 @@ st.set_page_config(
 )
 
 apply_custom_css()
+init_db()
 render_sidebar_logo()
 
 st.sidebar.markdown("---")
 page = st.sidebar.radio(
     "Navigate",
-    ["Home", "AI Teammates", "Code Reviewer"],
+    ["Home", "AI Teammates", "Code Reviewer", "History"],
     label_visibility="collapsed"
 )
 st.sidebar.markdown("---")
@@ -95,6 +97,7 @@ elif page == "AI Teammates":
                     elif teammate == "Documentation":
                         result = run_documentation(project_idea)
                 st.session_state.ai_output = result
+                save_to_history(project_idea, teammate, result)
 
         if "ai_output" in st.session_state:
             render_output_panel(st.session_state.ai_output)
@@ -168,3 +171,81 @@ elif page == "Code Reviewer":
                 </p>
             </div>
             """, unsafe_allow_html=True)
+
+# ---- History Page ----
+elif page == "History":
+    st.markdown("""
+    <h1 style="font-size: 24px; font-weight: 700; color: #e6edf3; margin-bottom: 8px;">
+        Project History
+    </h1>
+    <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">
+        All your past AI generations in one place.
+    </p>
+    """, unsafe_allow_html=True)
+
+    history = get_history()
+
+    if not history:
+        st.markdown("""
+        <div style="background-color: #161b22; border: 1px solid #30363d;
+                    border-radius: 8px; padding: 48px 24px; text-align: center;">
+            <p style="color: #8b949e; font-size: 14px;">
+                No history yet. Start generating to see your history here!
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        agent_colors = {
+            "Product Manager": "#238636",
+            "Developer": "#1f6feb",
+            "Tester": "#8957e5",
+            "Documentation": "#2aa198"
+        }
+
+        if st.button("Clear All History"):
+            clear_all_history()
+            st.rerun()
+
+        for item in history:
+            item_id, project_idea, teammate, output, created_at = item
+            color = agent_colors.get(teammate, "#238636")
+
+            with st.container():
+                st.markdown(f"""
+                <div style="
+                    background-color: #161b22;
+                    border: 1px solid #30363d;
+                    border-left: 3px solid {color};
+                    border-radius: 8px;
+                    padding: 16px 20px;
+                    margin-bottom: 12px;
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <p style="font-size: 15px; font-weight: 600; color: #e6edf3; margin: 0 0 4px 0;">
+                                {project_idea}
+                            </p>
+                            <p style="font-size: 12px; color: #8b949e; margin: 0;">
+                                {created_at}
+                            </p>
+                        </div>
+                        <span style="
+                            background-color: {color}22;
+                            color: {color};
+                            padding: 4px 10px;
+                            border-radius: 20px;
+                            font-size: 12px;
+                            font-weight: 600;
+                        ">{teammate}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                col1, col2 = st.columns([8, 1])
+                with col1:
+                    with st.expander("View Output"):
+                        st.markdown(output)
+                with col2:
+                    if st.button("Delete", key=f"del_{item_id}"):
+                        delete_history_item(item_id)
+                        st.rerun()
