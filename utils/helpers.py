@@ -6,20 +6,33 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
-
+DB_PATH = os.path.join(os.getcwd(), "data", "history.db")
 os.makedirs("data", exist_ok=True)
 
 def get_client():
-    api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
-    
+    api_key = None
+
+    # Try Streamlit secrets first
+    try:
+        api_key = st.secrets["GROQ_API_KEY"]
+    except:
+        pass
+
+    # Fallback to .env
     if not api_key:
-        raise ValueError("GROQ_API_KEY not found. Please add it in Streamlit Secrets.")
-    
+        api_key = os.getenv("GROQ_API_KEY")
+
+    if not api_key:
+        st.error("GROQ_API_KEY not found. Please add it in Streamlit secrets.")
+        return None
+
     return Groq(api_key=api_key)
 
 def get_ai_response(system_prompt, user_input, model="llama-3.3-70b-versatile"):
     try:
         client = get_client()
+        if client is None:
+            return "Missing GROQ API Key"
 
         chat_completion = client.chat.completions.create(
             messages=[
@@ -35,8 +48,10 @@ def get_ai_response(system_prompt, user_input, model="llama-3.3-70b-versatile"):
 ## Database
 
 def init_db():
-    conn = sqlite3.connect("data/history.db")
+
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,12 +61,13 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+
     conn.commit()
     conn.close()
 
 def save_to_history(project_idea, teammate, output):
     local_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with sqlite3.connect("data/history.db", timeout=10) as conn:
+    with sqlite3.connect(DB_PATH, timeout=10) as conn:
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO history (project_idea, teammate, output, created_at)
@@ -60,7 +76,7 @@ def save_to_history(project_idea, teammate, output):
         conn.commit()
 
 def get_history():
-    with sqlite3.connect("data/history.db", timeout=10) as conn:
+    with sqlite3.connect(DB_PATH, timeout=10) as conn:
         cursor = conn.cursor()
         cursor.execute("""
             SELECT id, project_idea, teammate, output, created_at
@@ -70,13 +86,13 @@ def get_history():
         return cursor.fetchall()
 
 def delete_history_item(item_id):
-    with sqlite3.connect("data/history.db", timeout=10) as conn:
+    with sqlite3.connect(DB_PATH, timeout=10) as conn:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM history WHERE id = ?", (item_id,))
         conn.commit()
 
 def clear_all_history():
-    with sqlite3.connect("data/history.db", timeout=10) as conn:
+    with sqlite3.connect(DB_PATH, timeout=10) as conn:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM history")
         conn.commit()
