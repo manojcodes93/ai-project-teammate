@@ -1,4 +1,5 @@
 import os
+import streamlit as st
 from groq import Groq
 import sqlite3
 from datetime import datetime
@@ -6,7 +7,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+os.makedirs("data", exist_ok=True)
+
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
+
+client = Groq(api_key=GROQ_API_KEY)
 
 def get_ai_response(system_prompt, user_input, model = "llama-3.3-70b-versatile"):
     try:
