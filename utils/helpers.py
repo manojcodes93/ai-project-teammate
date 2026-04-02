@@ -9,17 +9,23 @@ load_dotenv()
 
 os.makedirs("data", exist_ok=True)
 
-GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
+def get_client():
+    api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
+    
+    if not api_key:
+        raise ValueError("GROQ_API_KEY not found. Please add it in Streamlit Secrets.")
+    
+    return Groq(api_key=api_key)
 
-client = Groq(api_key=GROQ_API_KEY)
-
-def get_ai_response(system_prompt, user_input, model = "llama-3.3-70b-versatile"):
+def get_ai_response(system_prompt, user_input, model="llama-3.3-70b-versatile"):
     try:
+        client = get_client()
+
         chat_completion = client.chat.completions.create(
             messages=[
                 {"role": "user", "content": f"{system_prompt}\n\n{user_input}"}
             ],
-            model = model,
+            model=model,
         )
         return chat_completion.choices[0].message.content
     except Exception as e:
