@@ -1,4 +1,6 @@
 import streamlit as st
+import html
+import re
 import streamlit.components.v1 as components
 from agents.product_manager import run_product_manager
 from utils.helpers import init_db, save_to_history, get_history, delete_history_item, clear_all_history
@@ -194,7 +196,24 @@ elif page == "Code Reviewer":
             best_practices = raw.split("BEST PRACTICES:")[1].split("CORRECTED CODE:")[0].strip()
         if "CORRECTED CODE:" in raw:
             corrected = raw.split("CORRECTED CODE:")[1].strip()
-            corrected = corrected.replace("```python", "").replace("```", "").strip()
+
+            corrected = corrected.replace("```html", "")
+            corrected = corrected.replace("```python", "")
+            corrected = corrected.replace("```", "")
+
+            corrected = html.unescape(corrected)
+
+            # Remove pre and div tags safely
+            corrected = re.sub(r"</?pre[^>]*>", "", corrected)
+            corrected = re.sub(r"</?div[^>]*>", "", corrected)
+
+            # Remove accidental html labels
+            corrected = corrected.replace("html\n", "")
+            corrected = corrected.replace("html", "", 1)
+
+            # Clean extra spacing
+            corrected = corrected.strip()
+
         else:
             corrected = ""
 
@@ -238,32 +257,9 @@ elif page == "Code Reviewer":
             </div>
             """, unsafe_allow_html=True)
 
-            st.markdown("""
-            <div style="background-color: #0d1117; border: 1px solid #1f6feb;
-                        border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                <p style="color: #58a6ff; font-size: 13px; font-weight: 700; margin: 0 0 10px 0;">
-                    Corrected Code
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-
+            st.markdown("""<p style="color: #58a6ff; font-size: 13px; font-weight: 700;">Corrected Code</p>""", unsafe_allow_html=True)
             if corrected:
                 st.code(corrected, language="python")
-            else:
-                st.markdown("""
-                <p style="color: #8b949e; font-size: 13px;">
-                    No corrections needed.
-                </p>
-                """, unsafe_allow_html=True)
-    else:
-        st.markdown("""
-        <div style="background-color: #161b22; border: 1px solid #30363d;
-                    border-radius: 8px; padding: 48px 24px; text-align: center;">
-            <p style="color: #8b949e; font-size: 14px;">
-                Paste your code and click "Review Code" to get started
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
 
 # ---- History Page ----
 elif page == "History":
