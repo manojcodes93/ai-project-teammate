@@ -154,6 +154,11 @@ def apply_custom_css():
     }
 
     .block-container { padding-top: 2.5rem !important; }
+                
+    /* ---- Hide press enter to apply ---- */
+    .stTextInput div[data-testid="InputInstructions"] {
+        display: none !important;
+    }
 
     /* ---- Scrollbar ---- */
     ::-webkit-scrollbar { width: 6px; }
