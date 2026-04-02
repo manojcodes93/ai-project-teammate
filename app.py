@@ -35,7 +35,6 @@ if "page" in query_params:
 else:
     page = "Home"
     
-st.sidebar.markdown("---")
 page = st.sidebar.radio(
     "Navigate",
     ["Home", "AI Teammates", "Code Reviewer", "History"],

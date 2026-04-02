@@ -1,6 +1,7 @@
 import os
 from groq import Groq
 import sqlite3
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -38,39 +39,33 @@ def init_db():
     conn.close()
 
 def save_to_history(project_idea, teammate, output):
-    conn = sqlite3.connect("data/history.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO history (project_idea, teammate, output)
-        VALUES (?, ?, ?)
-    """, (project_idea, teammate, output))
-
-    conn.commit()
-    conn.close()
+    local_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with sqlite3.connect("data/history.db", timeout=10) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO history (project_idea, teammate, output, created_at)
+            VALUES (?, ?, ?, ?)
+        """, (project_idea, teammate, output, local_time))
+        conn.commit()
 
 def get_history():
-    conn = sqlite3.connect("data/history.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        select id, project_idea, teammate, output, created_at
-        from history
-        order by created_at DESC
-    """)
-
-    rows = cursor.fetchall()
-    conn.close()
-    return rows
+    with sqlite3.connect("data/history.db", timeout=10) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, project_idea, teammate, output, created_at
+            FROM history
+            ORDER BY created_at DESC
+        """)
+        return cursor.fetchall()
 
 def delete_history_item(item_id):
-    conn = sqlite3.connect("data/history.db")
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM history WHERE id = ?", (item_id,))
-    conn.commit()
-    conn.close()
+    with sqlite3.connect("data/history.db", timeout=10) as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM history WHERE id = ?", (item_id,))
+        conn.commit()
 
 def clear_all_history():
-    conn = sqlite3.connect("data/history.db")
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM history")
-    conn.commit()
-    conn.close()
+    with sqlite3.connect("data/history.db", timeout=10) as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM history")
+        conn.commit()
