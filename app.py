@@ -8,6 +8,7 @@ from agents.developer import run_developer
 from agents.tester import run_tester
 from agents.reviewer import run_reviewer
 from agents.documentation import run_documentation
+from utils.helpers import init_db
 from ui.dashboard import (
     apply_custom_css,
     render_sidebar_logo,
@@ -28,10 +29,10 @@ apply_custom_css()
 init_db()
 render_sidebar_logo()
 
-query_params = st.query_params
+query_params = st.experimental_get_query_params()
 
 if "page" in query_params:
-    page = query_params["page"]
+    page = query_params["page"][0]
 else:
     page = "Home"
     
