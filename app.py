@@ -30,10 +30,19 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+st.write("App starting...")
 
 apply_custom_css()
-init_db()
-render_sidebar_logo()
+
+try:
+    init_db()
+except Exception as e:
+    print("DB init error:", e)
+
+try:
+    render_sidebar_logo()
+except Exception as e:
+    print("Logo error:", e)
 
 query_params = st.query_params
 
