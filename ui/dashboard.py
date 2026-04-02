@@ -290,7 +290,6 @@ def render_teammate_selector(selected):
                 border-radius: 8px;
                 padding: 14px;
                 margin-bottom: 8px;
-                cursor: pointer;
             ">
                 <p style="font-size: 14px; font-weight: 600; color: #e6edf3; margin: 0 0 4px 0;">
                     {agent['key']}

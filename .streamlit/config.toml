@@ -1,9 +1,6 @@
 [server]
 headless = false
 
-[ui]
-hideSidebarNav = false
-
 [theme]
 base = "dark"
 backgroundColor = "#0e1117"
