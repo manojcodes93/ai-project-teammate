@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from agents.product_manager import run_product_manager
 from utils.helpers import init_db, save_to_history, get_history, delete_history_item, clear_all_history
 from agents.developer import run_developer
@@ -74,7 +75,7 @@ elif page == "AI Teammates":
     generate = st.button("Generate")
 
     st.markdown("---")
-
+    st.markdown('<div id="output"></div>', unsafe_allow_html=True)
     st.markdown("""
     <h3 style="font-size: 15px; font-weight: 600; color: #e6edf3; margin: 0 0 16px 0;">
         AI Output
@@ -99,7 +100,20 @@ elif page == "AI Teammates":
             if result:
                 st.session_state.ai_output = result
                 save_to_history(project_idea, teammate, result)
-                import streamlit.components.v1 as components
+                
+                components.html("""
+                <script>
+                setTimeout(function() {
+                    const el = window.parent.document.getElementById("output");
+                    if (el) {
+                        el.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start"
+                        });
+                    }
+                }, 500);
+                </script>
+                """, height=0)
                 
 
     if "ai_output" in st.session_state:
@@ -134,6 +148,8 @@ elif page == "Code Reviewer":
 
     st.markdown("---")
 
+    st.markdown('<div id="review-output"></div>', unsafe_allow_html=True)
+
     st.markdown("""
     <h3 style="font-size: 15px; font-weight: 600; color: #e6edf3; margin: 0 0 16px 0;">
         AI Review
@@ -147,6 +163,20 @@ elif page == "Code Reviewer":
             with st.spinner("Reviewing your code..."):
                 result = run_reviewer(code)
             st.session_state.review_output = result
+            
+            components.html("""
+            <script>
+            setTimeout(function() {
+                const el = window.parent.document.getElementById("review-output");
+                if (el) {
+                    el.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start"
+                    });
+                }
+            }, 500);
+            </script>
+            """, height=0)
             
 
     if "review_output" in st.session_state:
