@@ -1,20 +1,29 @@
 import streamlit as st
-from streamlit_lottie import st_lottie
+import os
 import requests
 import base64
+try:
+    from streamlit_lottie import st_lottie
+except:
+    st_lottie = None
 
 def get_logo_base64():
     try:
+        if not os.path.exists("assets/logo.png"):
+            return None
         with open("assets/logo.png", "rb") as f:
             return base64.b64encode(f.read()).decode()
     except:
         return None
 
 def load_lottie(url):
-    r = requests.get(url)
-    if r.status_code != 200:
+    try:
+        r = requests.get(url, timeout=5)
+        if r.status_code != 200:
+            return None
+        return r.json()
+    except:
         return None
-    return r.json()
 
 def apply_custom_css():
     st.markdown("""
