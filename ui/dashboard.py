@@ -1,6 +1,11 @@
 import streamlit as st
 from streamlit_lottie import st_lottie
 import requests
+import base64
+
+def get_logo_base64():
+    with open("assets/logo.png", "rb") as f:
+        return base64.b64encode(f.read()).decode()
 
 def load_lottie(url):
     r = requests.get(url)
@@ -170,12 +175,23 @@ def apply_custom_css():
 
 
 def render_sidebar_logo():
-    st.sidebar.markdown("""
+    logo_base64 = get_logo_base64()
+    st.sidebar.markdown(f"""
     <div style="padding: 20px 16px 10px 16px; border-bottom: 1px solid #30363d; margin-bottom: 16px;">
         <div style="display: flex; align-items: center; gap: 10px;">
-            <div style="background: #238636; width: 32px; height: 32px; border-radius: 8px; 
-                        display: flex; align-items: center; justify-content: center; 
-                        font-weight: 700; font-size: 16px; color: white;">B</div>
+            <div style="
+                background-color: #0e1117;
+                border: 2px solid #238636;
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            ">
+                <img src="data:image/png;base64,{logo_base64}" width="24" height="24" style="border-radius: 50%;"/>
+            </div>
             <span style="font-size: 16px; font-weight: 700; color: #ffffff;">BuildWithCrew</span>
         </div>
     </div>
