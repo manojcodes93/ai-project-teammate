@@ -25,10 +25,18 @@ apply_custom_css()
 init_db()
 render_sidebar_logo()
 
+query_params = st.query_params
+
+if "page" in query_params:
+    page = query_params["page"]
+else:
+    page = "Home"
+    
 st.sidebar.markdown("---")
 page = st.sidebar.radio(
     "Navigate",
     ["Home", "AI Teammates", "Code Reviewer", "History"],
+    index=["Home", "AI Teammates", "Code Reviewer", "History"].index(page),
     label_visibility="collapsed"
 )
 st.sidebar.markdown("---")
