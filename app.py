@@ -1,22 +1,29 @@
 import streamlit as st
-import html
-import re
-import streamlit.components.v1 as components
-from agents.product_manager import run_product_manager
-from utils.helpers import init_db, save_to_history, get_history, delete_history_item, clear_all_history
-from agents.developer import run_developer
-from agents.tester import run_tester
-from agents.reviewer import run_reviewer
-from agents.documentation import run_documentation
-from ui.dashboard import (
-    apply_custom_css,
-    render_sidebar_logo,
-    render_hero,
-    render_agent_cards,
-    render_teammate_selector,
-    render_output_panel,
-    render_review_output
-)
+try:
+    import html
+    import re
+    import streamlit.components.v1 as components
+
+    from agents.product_manager import run_product_manager
+    from utils.helpers import init_db, save_to_history, get_history, delete_history_item, clear_all_history
+    from agents.developer import run_developer
+    from agents.tester import run_tester
+    from agents.reviewer import run_reviewer
+    from agents.documentation import run_documentation
+
+    from ui.dashboard import (
+        apply_custom_css,
+        render_sidebar_logo,
+        render_hero,
+        render_agent_cards,
+        render_teammate_selector,
+        render_output_panel,
+        render_review_output
+    )
+
+except Exception as e:
+    st.error(f"Startup Error: {e}")
+    st.stop()
 
 st.set_page_config(
     page_title="BuildWithCrew",
