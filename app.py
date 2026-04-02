@@ -277,9 +277,10 @@ elif page == "History":
                 <div style="
                     background-color: #161b22;
                     border: 1px solid #30363d;
+                    border-left: 3px solid {color};
                     border-radius: 8px;
-                    padding: 24px;
-                    min-height: 400px;
+                    padding: 16px 20px;
+                    margin-bottom: 8px;
                 ">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
