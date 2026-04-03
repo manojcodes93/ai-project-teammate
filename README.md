@@ -2,6 +2,7 @@
 
 > Your AI-powered software development team — from planning to deployment.
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-buildwithcrew.streamlit.app-brightgreen?style=for-the-badge&logo=streamlit)](https://buildwithcrew.streamlit.app)
 ![Python](https://img.shields.io/badge/Python-3.9+-blue)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.0+-red)
 ![Groq](https://img.shields.io/badge/Groq-LLaMA3-green)
