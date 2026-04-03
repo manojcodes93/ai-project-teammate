@@ -1,48 +1,38 @@
 import streamlit as st
-import streamlit as st
+import html
+import re
+import streamlit.components.v1 as components
+
+from agents.product_manager import run_product_manager
+from utils.helpers import init_db, save_to_history, get_history, delete_history_item, clear_all_history
+from agents.developer import run_developer
+from agents.tester import run_tester
+from agents.reviewer import run_reviewer
+from agents.documentation import run_documentation
+
+from ui.dashboard import (
+    apply_custom_css,
+    render_sidebar_logo,
+    render_hero,
+    render_agent_cards,
+    render_teammate_selector,
+    render_output_panel,
+    render_review_output
+)
+
+# ✅ Must be FIRST Streamlit call, called ONCE, at module level
+st.set_page_config(
+    page_title="BuildWithCrew",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 def main():
-
-    import html
-    import re
-    import streamlit.components.v1 as components
-
-    from agents.product_manager import run_product_manager
-    from utils.helpers import init_db, save_to_history, get_history, delete_history_item, clear_all_history
-    from agents.developer import run_developer
-    from agents.tester import run_tester
-    from agents.reviewer import run_reviewer
-    from agents.documentation import run_documentation
-
-    from ui.dashboard import (
-        apply_custom_css,
-        render_sidebar_logo,
-        render_hero,
-        render_agent_cards,
-        render_teammate_selector,
-        render_output_panel,
-        render_review_output
-    )
-
-    st.set_page_config(
-        page_title="BuildWithCrew",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-
     apply_custom_css()
     init_db()
     render_sidebar_logo()
 
-    st.set_page_config(
-        page_title="BuildWithCrew",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-    st.write("App starting...")
-
     query_params = st.query_params
-
     pages = ["Home", "AI Teammates", "Code Reviewer", "History"]
     page = query_params.get("page", "Home")
 
@@ -115,21 +105,15 @@ def main():
                 if result:
                     st.session_state.ai_output = result
                     save_to_history(project_idea, teammate, result)
-                    
+
                     components.html("""
                     <script>
                     setTimeout(function() {
                         const el = window.parent.document.getElementById("output");
-                        if (el) {
-                            el.scrollIntoView({
-                                behavior: "smooth",
-                                block: "start"
-                            });
-                        }
+                        if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); }
                     }, 500);
                     </script>
                     """, height=0)
-                    
 
         if "ai_output" in st.session_state:
             render_output_panel(st.session_state.ai_output)
@@ -162,9 +146,7 @@ def main():
         submitted = st.button("Review Code")
 
         st.markdown("---")
-
         st.markdown('<div id="review-output"></div>', unsafe_allow_html=True)
-
         st.markdown("""
         <h3 style="font-size: 15px; font-weight: 600; color: #e6edf3; margin: 0 0 16px 0;">
             AI Review
@@ -178,21 +160,15 @@ def main():
                 with st.spinner("Reviewing your code..."):
                     result = run_reviewer(code)
                 st.session_state.review_output = result
-                
+
                 components.html("""
                 <script>
                 setTimeout(function() {
                     const el = window.parent.document.getElementById("review-output");
-                    if (el) {
-                        el.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start"
-                        });
-                    }
+                    if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); }
                 }, 500);
                 </script>
                 """, height=0)
-                
 
         if "review_output" in st.session_state:
             raw = st.session_state.review_output
@@ -200,6 +176,7 @@ def main():
             bugs = ""
             optimizations = ""
             best_practices = ""
+            corrected = ""
 
             if "BUGS:" in raw:
                 bugs = raw.split("BUGS:")[1].split("OPTIMIZATIONS:")[0].strip()
@@ -209,23 +186,11 @@ def main():
                 best_practices = raw.split("BEST PRACTICES:")[1].split("CORRECTED CODE:")[0].strip()
             if "CORRECTED CODE:" in raw:
                 corrected = raw.split("CORRECTED CODE:")[1].strip()
-
-                corrected = corrected.replace("```html", "")
-                corrected = corrected.replace("```python", "")
-                corrected = corrected.replace("```", "")
-
+                corrected = corrected.replace("```html", "").replace("```python", "").replace("```", "")
                 corrected = html.unescape(corrected)
-
                 corrected = re.sub(r"</?pre[^>]*>", "", corrected)
                 corrected = re.sub(r"</?div[^>]*>", "", corrected)
-
-                corrected = corrected.replace("html\n", "")
-                corrected = corrected.replace("html", "", 1)
-
-                corrected = corrected.strip()
-
-            else:
-                corrected = ""
+                corrected = corrected.replace("html\n", "").strip()
 
             col1, col2 = st.columns(2)
 
@@ -233,9 +198,7 @@ def main():
                 st.markdown(f"""
                 <div style="background-color: #1a1e24; border: 1px solid #da3633;
                             border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                    <p style="color: #f85149; font-size: 13px; font-weight: 700; margin: 0 0 10px 0;">
-                        Bugs Found
-                    </p>
+                    <p style="color: #f85149; font-size: 13px; font-weight: 700; margin: 0 0 10px 0;">Bugs Found</p>
                     <div style="color: #e6edf3; font-size: 13px; line-height: 1.8;">
                         {bugs if bugs else "No bugs found"}
                     </div>
@@ -245,9 +208,7 @@ def main():
                 st.markdown(f"""
                 <div style="background-color: #1a1e0a; border: 1px solid #d29922;
                             border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                    <p style="color: #e3b341; font-size: 13px; font-weight: 700; margin: 0 0 10px 0;">
-                        Optimizations
-                    </p>
+                    <p style="color: #e3b341; font-size: 13px; font-weight: 700; margin: 0 0 10px 0;">Optimizations</p>
                     <div style="color: #e6edf3; font-size: 13px; line-height: 1.8;">
                         {optimizations if optimizations else "No optimizations needed"}
                     </div>
@@ -258,9 +219,7 @@ def main():
                 st.markdown(f"""
                 <div style="background-color: #0a1a0a; border: 1px solid #238636;
                             border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                    <p style="color: #3fb950; font-size: 13px; font-weight: 700; margin: 0 0 10px 0;">
-                        Best Practices
-                    </p>
+                    <p style="color: #3fb950; font-size: 13px; font-weight: 700; margin: 0 0 10px 0;">Best Practices</p>
                     <div style="color: #e6edf3; font-size: 13px; line-height: 1.8;">
                         {best_practices if best_practices else "Code follows best practices"}
                     </div>
@@ -311,31 +270,20 @@ def main():
 
                 with st.container():
                     st.markdown(f"""
-                    <div style="
-                        background-color: #161b22;
-                        border: 1px solid #30363d;
-                        border-left: 3px solid {color};
-                        border-radius: 8px;
-                        padding: 16px 20px;
-                        margin-bottom: 8px;
-                    ">
+                    <div style="background-color: #161b22; border: 1px solid #30363d;
+                                border-left: 3px solid {color}; border-radius: 8px;
+                                padding: 16px 20px; margin-bottom: 8px;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
                                 <p style="font-size: 15px; font-weight: 600; color: #e6edf3; margin: 0 0 4px 0;">
                                     {project_idea}
                                 </p>
-                                <p style="font-size: 12px; color: #8b949e; margin: 0;">
-                                    {created_at}
-                                </p>
+                                <p style="font-size: 12px; color: #8b949e; margin: 0;">{created_at}</p>
                             </div>
-                            <span style="
-                                background-color: {color}22;
-                                color: {color};
-                                padding: 4px 10px;
-                                border-radius: 20px;
-                                font-size: 12px;
-                                font-weight: 600;
-                            ">{teammate}</span>
+                            <span style="background-color: {color}22; color: {color}; padding: 4px 10px;
+                                         border-radius: 20px; font-size: 12px; font-weight: 600;">
+                                {teammate}
+                            </span>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
