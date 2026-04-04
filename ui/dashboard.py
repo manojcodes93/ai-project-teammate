@@ -176,6 +176,13 @@ def apply_custom_css():
     .stTextInput div[data-testid="InputInstructions"] {
         display: none !important;
     }
+                
+    /* ---- Active nav item ---- */
+    [data-testid="stSidebar"] .stRadio > div > label:has(input:checked) {
+        background-color: #21262d !important;
+        color: #ffffff !important;
+        border-left: 3px solid #238636 !important;
+    }
 
     /* ---- Scrollbar ---- */
     ::-webkit-scrollbar { width: 6px; }
