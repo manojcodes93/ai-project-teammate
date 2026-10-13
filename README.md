@@ -4,8 +4,8 @@
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-buildwithcrew.streamlit.app-brightgreen?style=for-the-badge&logo=streamlit)](https://buildwithcrew.streamlit.app)
 ![Python](https://img.shields.io/badge/Python-3.9+-blue)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.0+-red)
-![Groq](https://img.shields.io/badge/Groq-LLaMA3-green)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.45+-red)
+![Groq](https://img.shields.io/badge/Groq-gpt--oss-green)
 
 ---
 
@@ -72,7 +72,7 @@ This leads to:
 |-------|-----------|
 | Frontend | Streamlit |
 | Backend | Python |
-| AI Model | LLaMA 3.3 70B via Groq API |
+| AI Model | Configurable reasoning model via Groq (default: `openai/gpt-oss-120b`) |
 | Database | SQLite |
 | Styling | Custom CSS |
 | Deployment | Streamlit Cloud |
@@ -85,31 +85,42 @@ ai-project-teammate/
 │
 ├── app.py                          # Main entry point
 ├── requirements.txt                # Python dependencies
+├── LICENSE                         # MIT license
 ├── .env                            # Environment variables (not committed)
+├── .env.example                    # Template for environment variables
 ├── .gitignore                      # Git ignore rules
 │
-├── agents/
-│   ├── product_manager.py          # Product Manager AI agent
-│   ├── developer.py                # Developer AI agent
-│   ├── tester.py                   # Tester AI agent
-│   ├── reviewer.py                 # Code Reviewer AI agent
-│   └── documentation.py           # Documentation AI agent
+├── .devcontainer/                  # VS Code / Codespaces dev container
+│   └── devcontainer.json
+├── .streamlit/
+│   └── config.toml                 # Streamlit theme + server config
 │
-├── ui/
-│   └── dashboard.py                # All UI components and CSS
-│
-├── utils/
-│   ├── prompts.py                  # All AI system prompts
-│   └── helpers.py                  # Groq API helper and database functions
+├── agents/                         # One module per AI teammate
+│   ├── product_manager.py
+│   ├── developer.py
+│   ├── tester.py
+│   ├── reviewer.py
+│   └── documentation.py
 │
 ├── assets/
-│   └── logo.png                    # Application logo
+│   └── logo.png
 │
-├── data/
-│   └── history.db                  # SQLite database (auto-created)
+├── data/                           # SQLite storage (git-ignored)
+│   └── history.db
 │
-└── .streamlit/
-    └── config.toml                 # Streamlit configuration
+├── tests/
+│   └── test_smoke.py               # Unit smoke tests
+│
+├── ui/
+│   ├── __init__.py
+│   └── dashboard.py                # CSS + UI components
+│
+└── utils/
+    ├── __init__.py
+    ├── agents.py                   # Teammate metadata (single source)
+    ├── helpers.py                  # Groq client + SQLite helpers
+    ├── parsing.py                  # Pure reviewer-output parsing helpers
+    └── prompts.py                  # Agent system prompts
 ```
 
 ---
@@ -148,7 +159,12 @@ pip install -r requirements.txt
 Create a `.env` file in the root directory:
 ```
 GROQ_API_KEY=your_groq_api_key_here
+# Optional — override the default model
+# GROQ_MODEL=openai/gpt-oss-120b
 ```
+
+Alternatively, put the same keys in `.streamlit/secrets.toml` (git-ignored) — handy
+for Streamlit Community Cloud deployments.
 
 ### Step 5 — Run the application
 ```bash
@@ -164,6 +180,13 @@ Open your browser at `http://localhost:8501`
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `GROQ_API_KEY` | Your Groq API key from console.groq.com | Yes |
+| `GROQ_MODEL` | Groq model ID to use (default `openai/gpt-oss-120b`) | No |
+| `GROQ_MAX_TOKENS` | Max completion tokens per response (default `8192`) | No |
+| `GROQ_TEMPERATURE` | Sampling temperature (default `0.7`) | No |
+| `GROQ_REASONING_EFFORT` | Reasoning effort for gpt-oss models: `low`, `medium`, `high` (default `low`; `off` omits it) | No |
+
+All of the above can be supplied either as environment variables / `.env` or in
+`.streamlit/secrets.toml`.
 
 ---
 
@@ -172,13 +195,20 @@ Open your browser at `http://localhost:8501`
 streamlit
 groq
 python-dotenv
-streamlit-lottie
-requests
 ```
 
 Install all with:
 ```bash
 pip install -r requirements.txt
+```
+
+---
+
+## Testing
+
+Run the unit smoke tests (no API key required):
+```bash
+python -m unittest discover -s tests
 ```
 
 ---
@@ -267,6 +297,10 @@ CREATE TABLE history (
 );
 ```
 
+> **Note:** the database is stored locally at `data/history.db`. On hosts with an
+> ephemeral filesystem (e.g. Streamlit Community Cloud), history is **not**
+> persisted across redeploys or restarts. Use a managed database for durable storage.
+
 ---
 
 ## UI Architecture
@@ -293,7 +327,7 @@ The UI is built with Streamlit and custom CSS:
 | GitHub integration | Push generated code directly to GitHub repos | Medium |
 | Voice interaction | Speak your project idea, hear the output | Low |
 | Custom agents | Create your own AI agent with custom prompts | Low |
-| Model selection | Switch between different LLM providers | Medium |
+| Model selection | `GROQ_MODEL` env var / secret switches models (done); UI picker pending | Medium |
 | Project templates | Pre-built templates for common project types | Medium |
 | Dark / Light Mode | UI personalization | Low |
 
@@ -311,9 +345,15 @@ Built with ❤️ by Manoj Royal
 ## Acknowledgements
 
 - [Groq](https://groq.com) — for the blazing fast LLM inference
-- [Meta LLaMA](https://llama.meta.com) — for the open source LLM
+- [OpenAI GPT-OSS](https://openai.com/index/introducing-gpt-oss/) — for the open source LLM
 - [Streamlit](https://streamlit.io) — for the amazing Python web framework
 - [GitHub](https://github.com) — for design inspiration
+
+---
+
+## License
+
+Released under the [MIT License](LICENSE).
 
 ---
 

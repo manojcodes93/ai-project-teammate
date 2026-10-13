@@ -1,14 +1,23 @@
-import streamlit as st
 import html
-import re
+
+import streamlit as st
 import streamlit.components.v1 as components
 
 from agents.product_manager import run_product_manager
-from utils.helpers import init_db, save_to_history, get_history, delete_history_item, clear_all_history
 from agents.developer import run_developer
 from agents.tester import run_tester
 from agents.reviewer import run_reviewer
 from agents.documentation import run_documentation
+
+from utils.helpers import (
+    init_db,
+    save_to_history,
+    get_history,
+    delete_history_item,
+    clear_all_history,
+)
+from utils.agents import agent_color
+from utils.parsing import extract_code, parse_review, safe_block as _safe_block
 
 from ui.dashboard import (
     apply_custom_css,
@@ -17,47 +26,66 @@ from ui.dashboard import (
     render_agent_cards,
     render_teammate_selector,
     render_output_panel,
-    render_review_output
 )
 
-# ✅ Must be FIRST Streamlit call, called ONCE, at module level
+# Must be the FIRST Streamlit call, at module level.
 st.set_page_config(
     page_title="BuildWithCrew",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
+
+PAGES = ["Home", "AI Teammates", "Code Reviewer", "History"]
+
+
+def _scroll_to(element_id):
+    markup = f"""
+    <script>
+    setTimeout(function() {{
+        const el = window.parent.document.getElementById("{element_id}");
+        if (el) {{ el.scrollIntoView({{ behavior: "smooth", block: "start" }}); }}
+    }}, 500);
+    </script>
+    """
+    if hasattr(st, "iframe"):
+        st.iframe(markup, height=1)
+    else:
+        components.html(markup, height=0)
+
 
 def main():
     apply_custom_css()
     init_db()
     render_sidebar_logo()
 
-    query_params = st.query_params
-    pages = ["Home", "AI Teammates", "Code Reviewer", "History"]
-    page = query_params.get("page", "Home")
+    # ---- Navigation: keep the query string and the radio in sync ----
+    qp_page = st.query_params.get("page")
+    if qp_page in PAGES:
+        st.session_state.page = qp_page
+        del st.query_params["page"]
 
-    if page not in pages:
-        page = "Home"
+    if "page" not in st.session_state:
+        st.session_state.page = "Home"
 
     page = st.sidebar.radio(
         "Navigate",
-        pages,
-        index=pages.index(page),
-        label_visibility="collapsed"
+        PAGES,
+        key="page",
+        label_visibility="collapsed",
     )
     st.sidebar.markdown("---")
     st.sidebar.markdown("""
     <p style='color: #8b949e; font-size: 12px; padding: 0 16px;'>
-        Powered by Groq & Llama 3
+        Powered by Groq
     </p>
     """, unsafe_allow_html=True)
 
-    # ---- Home Page ----
+    # ---- Home ----
     if page == "Home":
         render_hero()
         render_agent_cards()
 
-    # ---- AI Teammates Page ----
+    # ---- AI Teammates ----
     elif page == "AI Teammates":
         st.markdown("""
         <h1 style="font-size: 24px; font-weight: 700; color: #e6edf3; margin-bottom: 24px;">
@@ -68,16 +96,20 @@ def main():
         project_idea = st.text_input(
             "Project Idea",
             placeholder="Describe your new feature or app...",
-            key="project_idea_input"
+            key="project_idea_input",
         )
 
         if "selected_teammate" not in st.session_state:
             st.session_state.selected_teammate = "Product Manager"
 
-        teammate = render_teammate_selector(st.session_state.selected_teammate)
-        st.session_state.selected_teammate = teammate
+        teammate = render_teammate_selector()
 
-        generate = st.button("Generate")
+        # Clear stale output when the selected teammate changes.
+        if st.session_state.get("output_for_teammate") != teammate:
+            st.session_state.pop("ai_output", None)
+            st.session_state.output_for_teammate = teammate
+
+        generate = st.button("Generate", type="primary")
 
         st.markdown("---")
         st.markdown('<div id="output"></div>', unsafe_allow_html=True)
@@ -88,32 +120,29 @@ def main():
         """, unsafe_allow_html=True)
 
         if generate:
-            if project_idea.strip() == "":
+            if not project_idea.strip():
                 st.warning("Please enter a project idea!")
             else:
+                result = None
                 with st.spinner(f"{teammate} AI is thinking..."):
-                    if teammate == "Product Manager":
-                        result = run_product_manager(project_idea)
-                    elif teammate == "Developer":
-                        result = run_developer(project_idea)
-                    elif teammate == "Tester":
-                        result = run_tester(project_idea)
-                    elif teammate == "Documentation":
-                        result = run_documentation(project_idea)
-                    else:
-                        result = "Error: No teammate selected"
+                    try:
+                        if teammate == "Product Manager":
+                            result = run_product_manager(project_idea)
+                        elif teammate == "Developer":
+                            result = run_developer(project_idea)
+                        elif teammate == "Tester":
+                            result = run_tester(project_idea)
+                        elif teammate == "Documentation":
+                            result = run_documentation(project_idea)
+                        else:
+                            st.error(f"Unknown teammate: {teammate}")
+                    except Exception as exc:
+                        st.error(f"Failed to generate a response: {exc}")
+
                 if result:
                     st.session_state.ai_output = result
                     save_to_history(project_idea, teammate, result)
-
-                    components.html("""
-                    <script>
-                    setTimeout(function() {
-                        const el = window.parent.document.getElementById("output");
-                        if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); }
-                    }, 500);
-                    </script>
-                    """, height=0)
+                    _scroll_to("output")
 
         if "ai_output" in st.session_state:
             render_output_panel(st.session_state.ai_output)
@@ -141,9 +170,9 @@ def main():
             "code_input",
             height=300,
             placeholder="Paste your Python, JavaScript, or any code here...",
-            label_visibility="collapsed"
+            label_visibility="collapsed",
         )
-        submitted = st.button("Review Code")
+        submitted = st.button("Review Code", type="primary")
 
         st.markdown("---")
         st.markdown('<div id="review-output"></div>', unsafe_allow_html=True)
@@ -154,43 +183,31 @@ def main():
         """, unsafe_allow_html=True)
 
         if submitted:
-            if code.strip() == "":
+            if not code.strip():
                 st.warning("Please paste some code!")
             else:
+                result = None
                 with st.spinner("Reviewing your code..."):
-                    result = run_reviewer(code)
-                st.session_state.review_output = result
+                    try:
+                        result = run_reviewer(code)
+                    except Exception as exc:
+                        st.error(f"Failed to review code: {exc}")
 
-                components.html("""
-                <script>
-                setTimeout(function() {
-                    const el = window.parent.document.getElementById("review-output");
-                    if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); }
-                }, 500);
-                </script>
-                """, height=0)
+                if result:
+                    st.session_state.review_output = result
+                    snippet = next(
+                        (line.strip() for line in code.splitlines() if line.strip()),
+                        "Code review",
+                    )
+                    save_to_history(snippet[:120], "Code Reviewer", result)
+                    _scroll_to("review-output")
 
         if "review_output" in st.session_state:
-            raw = st.session_state.review_output
-
-            bugs = ""
-            optimizations = ""
-            best_practices = ""
-            corrected = ""
-
-            if "BUGS:" in raw:
-                bugs = raw.split("BUGS:")[1].split("OPTIMIZATIONS:")[0].strip()
-            if "OPTIMIZATIONS:" in raw:
-                optimizations = raw.split("OPTIMIZATIONS:")[1].split("BEST PRACTICES:")[0].strip()
-            if "BEST PRACTICES:" in raw:
-                best_practices = raw.split("BEST PRACTICES:")[1].split("CORRECTED CODE:")[0].strip()
-            if "CORRECTED CODE:" in raw:
-                corrected = raw.split("CORRECTED CODE:")[1].strip()
-                corrected = corrected.replace("```html", "").replace("```python", "").replace("```", "")
-                corrected = html.unescape(corrected)
-                corrected = re.sub(r"</?pre[^>]*>", "", corrected)
-                corrected = re.sub(r"</?div[^>]*>", "", corrected)
-                corrected = corrected.replace("html\n", "").strip()
+            sections = parse_review(st.session_state.review_output)
+            bugs = sections.get("BUGS", "")
+            optimizations = sections.get("OPTIMIZATIONS", "")
+            best_practices = sections.get("BEST PRACTICES", "")
+            language, corrected = extract_code(sections.get("CORRECTED CODE", ""))
 
             col1, col2 = st.columns(2)
 
@@ -200,7 +217,7 @@ def main():
                             border-radius: 8px; padding: 16px; margin-bottom: 12px;">
                     <p style="color: #f85149; font-size: 13px; font-weight: 700; margin: 0 0 10px 0;">Bugs Found</p>
                     <div style="color: #e6edf3; font-size: 13px; line-height: 1.8;">
-                        {bugs if bugs else "No bugs found"}
+                        {_safe_block(bugs) or "No bugs found"}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -210,25 +227,28 @@ def main():
                             border-radius: 8px; padding: 16px; margin-bottom: 12px;">
                     <p style="color: #e3b341; font-size: 13px; font-weight: 700; margin: 0 0 10px 0;">Optimizations</p>
                     <div style="color: #e6edf3; font-size: 13px; line-height: 1.8;">
-                        {optimizations if optimizations else "No optimizations needed"}
+                        {_safe_block(optimizations) or "No optimizations needed"}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
             with col2:
                 st.markdown(f"""
-                <div style="background-color: #0a1a0a; border: 1px solid #238636;
+                <div style="background-color: #1a1e24; border: 1px solid #8957e5;
                             border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                    <p style="color: #3fb950; font-size: 13px; font-weight: 700; margin: 0 0 10px 0;">Best Practices</p>
+                    <p style="color: #a371f7; font-size: 13px; font-weight: 700; margin: 0 0 10px 0;">Best Practices</p>
                     <div style="color: #e6edf3; font-size: 13px; line-height: 1.8;">
-                        {best_practices if best_practices else "Code follows best practices"}
+                        {_safe_block(best_practices) or "Code follows best practices"}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
-                st.markdown("""<p style="color: #58a6ff; font-size: 13px; font-weight: 700;">Corrected Code</p>""", unsafe_allow_html=True)
                 if corrected:
-                    st.code(corrected, language="python")
+                    st.markdown("""
+                    <p style="color: #58a6ff; font-size: 13px; font-weight: 700;
+                              margin: 0 0 8px 0;">Corrected Code</p>
+                    """, unsafe_allow_html=True)
+                    st.code(corrected, language=language)
 
     # ---- History Page ----
     elif page == "History":
@@ -253,20 +273,13 @@ def main():
             </div>
             """, unsafe_allow_html=True)
         else:
-            agent_colors = {
-                "Product Manager": "#238636",
-                "Developer": "#1f6feb",
-                "Tester": "#8957e5",
-                "Documentation": "#2aa198"
-            }
-
             if st.button("Clear All History"):
                 clear_all_history()
                 st.rerun()
 
             for item in history:
                 item_id, project_idea, teammate, output, created_at = item
-                color = agent_colors.get(teammate, "#238636")
+                color = agent_color(teammate)
 
                 with st.container():
                     st.markdown(f"""
@@ -276,13 +289,13 @@ def main():
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
                                 <p style="font-size: 15px; font-weight: 600; color: #e6edf3; margin: 0 0 4px 0;">
-                                    {project_idea}
+                                    {html.escape(project_idea)}
                                 </p>
-                                <p style="font-size: 12px; color: #8b949e; margin: 0;">{created_at}</p>
+                                <p style="font-size: 12px; color: #8b949e; margin: 0;">{html.escape(str(created_at))}</p>
                             </div>
                             <span style="background-color: {color}22; color: {color}; padding: 4px 10px;
                                          border-radius: 20px; font-size: 12px; font-weight: 600;">
-                                {teammate}
+                                {html.escape(teammate)}
                             </span>
                         </div>
                     </div>

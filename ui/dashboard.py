@@ -1,29 +1,33 @@
-import streamlit as st
-import os
-import requests
 import base64
-try:
-    from streamlit_lottie import st_lottie
-except:
-    st_lottie = None
+import os
+
+import streamlit as st
+
+from utils.agents import AGENTS, SELECTABLE_AGENTS
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOGO_PATH = os.path.join(BASE_DIR, "assets", "logo.png")
+
+
+def _logo_mtime():
+    try:
+        return os.path.getmtime(LOGO_PATH)
+    except OSError:
+        return 0.0
+
+
+@st.cache_data
+def _read_logo(_mtime):
+    try:
+        with open(LOGO_PATH, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    except Exception:
+        return None
+
 
 def get_logo_base64():
-    try:
-        if not os.path.exists("assets/logo.png"):
-            return None
-        with open("assets/logo.png", "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    except:
-        return None
+    return _read_logo(_logo_mtime())
 
-def load_lottie(url):
-    try:
-        r = requests.get(url, timeout=5)
-        if r.status_code != 200:
-            return None
-        return r.json()
-    except:
-        return None
 
 def apply_custom_css():
     st.markdown("""
@@ -127,22 +131,20 @@ def apply_custom_css():
         background-color: #2ea043 !important;
         box-shadow: 0 0 12px rgba(46, 160, 67, 0.4) !important;
     }
-    
-    /* ---- Selectbox cursor pointer ---- */
-    .stSelectbox div[data-baseweb="select"] {
-        cursor: pointer !important;
+
+    /* ---- Secondary buttons (unselected teammates) ---- */
+    .stButton button[data-testid="stBaseButton-secondary"],
+    .stButton button[kind="secondary"] {
+        background-color: #21262d !important;
+        color: #c9d1d9 !important;
+        border: 1px solid #30363d !important;
     }
 
-    .stSelectbox div[data-baseweb="select"] * {
-        cursor: pointer !important;
-    }
-                
-    div[data-baseweb="select"] {
-        cursor: pointer !important;
-    }
-
-    div[data-baseweb="select"] * {
-        cursor: pointer !important;
+    .stButton button[data-testid="stBaseButton-secondary"]:hover,
+    .stButton button[kind="secondary"]:hover {
+        background-color: #30363d !important;
+        border-color: #238636 !important;
+        box-shadow: none !important;
     }
 
     /* ---- Hide default streamlit elements ---- */
@@ -171,12 +173,12 @@ def apply_custom_css():
     }
 
     .block-container { padding-top: 2.5rem !important; }
-                
+
     /* ---- Hide press enter to apply ---- */
     .stTextInput div[data-testid="InputInstructions"] {
         display: none !important;
     }
-                
+
     /* ---- Active nav item ---- */
     [data-testid="stSidebar"] .stRadio > div > label:has(input:checked) {
         background-color: #21262d !important;
@@ -199,7 +201,7 @@ def render_sidebar_logo():
         logo_html = f'<img src="data:image/png;base64,{logo_base64}" width="36" height="36" style="border-radius: 50%;"/>'
     else:
         logo_html = '<div style="background:#238636;width:24px;height:24px;border-radius:50%;"></div>'
-    
+
     st.sidebar.markdown(f"""
     <div style="padding: 20px 16px 10px 16px; border-bottom: 1px solid #30363d; margin-bottom: 16px;">
         <div style="display: flex; align-items: center; gap: 10px;">
@@ -213,13 +215,13 @@ def render_sidebar_logo():
 def render_hero():
     st.markdown("""
     <div style="
-        background: linear-gradient(135deg, #161b22 0%, #0e1117 100%);
         border: 1px solid #30363d;
         border-radius: 12px;
         padding: 48px 40px;
         margin-bottom: 24px;
-        background-image: radial-gradient(#21262d 1px, transparent 1px);
-        background-size: 24px 24px;
+        background: radial-gradient(#21262d 1px, transparent 1px),
+                    linear-gradient(135deg, #161b22 0%, #0e1117 100%);
+        background-size: 24px 24px, 100% 100%;
         text-align: center;
         position: relative;
         overflow: hidden;
@@ -256,90 +258,71 @@ def render_hero():
 
 
 def render_agent_cards():
-    agents = [
-        {"title": "Product Manager", "desc": "Defines requirements, features and roadmap", "color": "#238636"},
-        {"title": "Developer", "desc": "Writes and reviews code and architecture", "color": "#1f6feb"},
-        {"title": "Tester", "desc": "Conducts automated and manual testing", "color": "#8957e5"},
-        {"title": "Code Reviewer", "desc": "Reviews code for bugs and best practices", "color": "#db6d28"},
-        {"title": "Documentation", "desc": "Creates user and developer documentation", "color": "#2aa198"},
-    ]
-
     st.markdown("""
     <h2 style="font-size: 18px; font-weight: 600; color: #e6edf3; margin: 0 0 16px 0;">
         Your AI Teammates
     </h2>
     """, unsafe_allow_html=True)
 
-    cols = st.columns(3)
-    for i, agent in enumerate(agents):
-        with cols[i % 3]:
-            st.markdown(f"""
-            <div style="
-                background-color: #161b22;
-                border: 1px solid #30363d;
-                border-top: 3px solid {agent['color']};
-                border-radius: 8px;
-                padding: 20px;
-                margin-bottom: 16px;
-                transition: all 0.2s ease;
-            ">
-                <h3 style="font-size: 15px; font-weight: 600; color: #e6edf3; margin: 0 0 6px 0;">
-                    {agent['title']}
-                </h3>
-                <p style="font-size: 13px; color: #8b949e; margin: 0 0 16px 0; line-height: 1.5;">
-                    {agent['desc']}
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
+    cards = "".join(
+        f"""
+        <div style="
+            flex: 1 1 180px;
+            max-width: 100%;
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-top: 3px solid {agent['color']};
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.2s ease;
+        ">
+            <h3 style="font-size: 15px; font-weight: 600; color: #e6edf3; margin: 0 0 6px 0;">
+                {agent['key']}
+            </h3>
+            <p style="font-size: 13px; color: #8b949e; margin: 0; line-height: 1.5;">
+                {agent['desc']}
+            </p>
+        </div>
+        """
+        for agent in AGENTS
+    )
+
+    st.markdown(
+        f'<div style="display: flex; flex-wrap: wrap; gap: 16px; '
+        f'margin-bottom: 16px;">{cards}</div>',
+        unsafe_allow_html=True,
+    )
 
 
-def render_teammate_selector(selected):
-    agents = [
-        {"key": "Product Manager", "icon": "PM", "desc": "Defines requirements and roadmap"},
-        {"key": "Developer", "icon": "Dev", "desc": "Writes and reviews code"},
-        {"key": "Tester", "icon": "QA", "desc": "Conducts automated and manual testing"},
-        {"key": "Documentation", "icon": "Doc", "desc": "Creates user and developer docs"},
-    ]
+
+def _select_teammate(key):
+    st.session_state.selected_teammate = key
+
+
+def render_teammate_selector():
+    selected = st.session_state.get("selected_teammate", "Product Manager")
 
     st.markdown("""
     <p style="font-size: 13px; font-weight: 500; color: #e6edf3; margin: 0 0 8px 0;">
-        Teammate Selector
+        Choose a teammate
     </p>
     """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
-    cols = [col1, col2, col1, col2]
+    cols = st.columns(2)
+    for i, agent in enumerate(SELECTABLE_AGENTS):
+        is_selected = agent["key"] == selected
+        label = f"✓  {agent['key']}" if is_selected else agent["key"]
+        with cols[i % 2]:
+            st.button(
+                label,
+                key=f"teammate_{agent['key']}",
+                type="primary" if is_selected else "secondary",
+                on_click=_select_teammate,
+                args=(agent["key"],),
+            )
+            st.caption(agent["selector_desc"])
 
-    for i, agent in enumerate(agents):
-        is_selected = selected == agent["key"]
-        border_color = "#238636" if is_selected else "#30363d"
-        bg_color = "#1a2e1a" if is_selected else "#161b22"
-
-        with cols[i]:
-            st.markdown(f"""
-            <div style="
-                background-color: {bg_color};
-                border: 1px solid {border_color};
-                border-radius: 8px;
-                padding: 14px;
-                margin-bottom: 8px;
-            ">
-                <p style="font-size: 14px; font-weight: 600; color: #e6edf3; margin: 0 0 4px 0;">
-                    {agent['key']}
-                </p>
-                <p style="font-size: 12px; color: #8b949e; margin: 0;">
-                    {agent['desc']}
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-
-    result = st.selectbox(
-        "Select Teammate",
-        ["Product Manager", "Developer", "Tester", "Documentation"],
-        index=["Product Manager", "Developer", "Tester", "Documentation"].index(selected),
-        label_visibility="collapsed"
-    )
-    return result
+    return st.session_state.get("selected_teammate", "Product Manager")
 
 
 def render_output_panel(result=None):
@@ -367,50 +350,3 @@ def render_output_panel(result=None):
     else:
         with st.container(border=True):
             st.markdown(result)
-
-def render_review_output(result=None):
-    if result is None:
-        st.markdown("""
-        <div style="
-            background-color: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 8px;
-            padding: 48px 24px;
-            text-align: center;
-            min-height: 400px;
-        ">
-            <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;">🤖</div>
-            <p style="color: #8b949e; font-size: 14px;">
-                Paste your code and click "Review Code" to get started
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown(f"""
-        <div style="
-            background-color: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 8px;
-            padding: 20px;
-        ">
-            <div style="display: flex; justify-content: space-between; 
-                        align-items: center; margin-bottom: 16px;">
-                <h3 style="font-size: 15px; font-weight: 600; color: #e6edf3; margin: 0;">
-                    AI Review
-                </h3>
-                <span style="background-color: #21262d; color: #8b949e; padding: 6px 12px;
-                             border-radius: 6px; font-size: 12px; cursor: pointer;">
-                    Copy All
-                </span>
-            </div>
-            <div style="background-color: #1a1e24; border: 1px solid #da3633;
-                        border-radius: 6px; padding: 16px; margin-bottom: 12px;">
-                <p style="color: #f85149; font-size: 13px; font-weight: 600; margin: 0 0 8px 0;">
-                    Bugs Found
-                </p>
-                <div style="color: #e6edf3; font-size: 13px; line-height: 1.8;">
-                    {result}
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
