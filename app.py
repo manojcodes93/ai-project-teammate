@@ -19,6 +19,7 @@ from utils.helpers import (
 from utils.agents import agent_color
 from utils.parsing import extract_code, parse_review, safe_block as _safe_block
 from runtime.engine import WorkflowEngine
+from sandbox.executor import docker_available
 
 from ui.dashboard import (
     apply_custom_css,
@@ -52,6 +53,41 @@ def _scroll_to(element_id):
         st.iframe(markup, height=1)
     else:
         components.html(markup, height=0)
+
+
+def _render_workflow_stepper(values):
+    values = values or {}
+    status = values.get("status", "running")
+    stage = values.get("stage", "")
+
+    done_map = {
+        "Product Manager": bool(values.get("requirements")),
+        "Developer": bool(values.get("files")),
+        "Tester": bool(values.get("test_results")),
+        "Code Reviewer": bool(values.get("review_output")),
+        "Documentation": bool(values.get("documentation")),
+    }
+    current_map = {
+        "product_manager_complete": "Developer",
+        "developer_complete": "Tester",
+        "tester_complete": "Code Reviewer",
+        "code_reviewer_complete": "Documentation",
+        "documentation_complete": "Documentation",
+        "approval_granted": "Tester",
+    }
+    current = None if status in {"success", "failed", "cancelled"} else current_map.get(stage, "Product Manager")
+
+    cols = st.columns(5)
+    for col, name in zip(cols, done_map):
+        done = done_map[name]
+        active = name == current
+        color = "#238636" if done else ("#1f6feb" if active else "#30363d")
+        suffix = " done" if done else (" now" if active else "")
+        col.markdown(
+            f"<div style='border-top:4px solid {color};padding-top:6px;text-align:center;"
+            f"font-size:12px;color:{color};font-weight:600;'>{name}{suffix}</div>",
+            unsafe_allow_html=True,
+        )
 
 
 def main():
@@ -262,6 +298,13 @@ def main():
         </p>
         """, unsafe_allow_html=True)
 
+        if not docker_available():
+            st.warning(
+                "Docker is not available in this environment. Generated-code "
+                "tests will be reported as unavailable instead of running. "
+                "Install/start Docker to execute tests for real."
+            )
+
         if "workflow_engine" not in st.session_state:
             st.session_state.workflow_engine = WorkflowEngine()
 
@@ -274,41 +317,128 @@ def main():
             height=120,
         )
 
-        if st.button("Build Project", type="primary", key="build_project_btn"):
+        settings_cols = st.columns(3)
+        with settings_cols[0]:
+            max_attempts = st.number_input(
+                "Max developer attempts",
+                min_value=1,
+                max_value=10,
+                value=int(st.session_state.get("workflow_max_attempts", 3)),
+                key="workflow_max_attempts_input",
+            )
+            st.session_state.workflow_max_attempts = int(max_attempts)
+        with settings_cols[1]:
+            approval_required = st.checkbox(
+                "Require test approval",
+                value=bool(st.session_state.get("workflow_approval_required", False)),
+                key="workflow_approval_required_input",
+            )
+            st.session_state.workflow_approval_required = bool(approval_required)
+        with settings_cols[2]:
+            st.caption("Sandbox: Docker-based, network disabled by default.")
+
+        running = bool(st.session_state.get("workflow_running", False))
+        build_clicked = st.button("Build Project", type="primary", key="build_project_btn", disabled=running)
+        cancel_clicked = st.button("Cancel run", key="cancel_run_btn", disabled=not running)
+
+        if cancel_clicked:
+            st.session_state.workflow_cancel_requested = True
+
+        if (not running) and build_clicked:
             if not request.strip():
                 st.warning("Please enter a project request.")
             else:
-                with st.spinner("Running agentic workflow..."):
-                    try:
-                        thread_id, result, config = engine.start(request.strip())
-                        st.session_state.workflow_thread_id = thread_id
-                        st.session_state.workflow_result = result
-                    except Exception as exc:
-                        st.error(f"Workflow failed to start: {exc}")
+                st.session_state.workflow_running = True
+                st.session_state.workflow_cancel_requested = False
+                thread_id, stream = engine.stream(
+                    request.strip(),
+                    requires_test_approval=bool(st.session_state.get("workflow_approval_required", False)),
+                    max_developer_attempts=int(st.session_state.get("workflow_max_attempts", 3)),
+                )
+                st.session_state.workflow_thread_id = thread_id
+                progress_box = st.empty()
+                event_box = st.empty()
+                result_container = st.empty()
+
+                try:
+                    for _chunk in stream:
+                        if st.session_state.get("workflow_cancel_requested"):
+                            engine.cancel(thread_id)
+                            break
+
+                        snapshot = engine.get_state(thread_id)
+                        values = getattr(snapshot, "values", {}) or {}
+                        st.session_state.workflow_values = values
+
+                        with progress_box.container():
+                            _render_workflow_stepper(values)
+                            st.markdown(f"**Status:** {values.get('status', 'running')}")
+                            st.markdown(f"**Stage:** {values.get('stage', '')}")
+                            st.markdown(
+                                f"**Developer attempts:** "
+                                f"{values.get('developer_attempts', 0)} / "
+                                f"{st.session_state.get('workflow_max_attempts', 3)}"
+                            )
+                            st.markdown(f"**Tests passed:** {values.get('tests_passed', False)}")
+                            st.markdown(f"**Review passed:** {values.get('review_passed', False)}")
+
+                        with event_box.container():
+                            st.markdown("#### Live Workflow Events")
+                            events = values.get("events") or []
+                            if not events:
+                                st.caption("Waiting for the first node to report progress...")
+                            else:
+                                for event_text in reversed(events[-20:]):
+                                    st.caption(event_text)
+
+                        with result_container.container():
+                            files = values.get("files") or {}
+                            if files:
+                                st.markdown("#### Generated Files")
+                                for name, content in files.items():
+                                    with st.expander(name):
+                                        st.code(content)
+                            if values.get("test_results"):
+                                st.markdown("#### Latest Test Results")
+                                st.json(values.get("test_results"))
+                            if getattr(snapshot, "interrupts", None):
+                                st.warning("Human approval required before continuing.")
+                                pending = values.get("pending_approval", {})
+                                st.json(pending)
+                except Exception as exc:
+                    st.error(f"Workflow failed: {exc}")
+                finally:
+                    st.session_state.workflow_running = False
+
+                st.rerun()
 
         thread_id = st.session_state.get("workflow_thread_id")
         if thread_id:
-            snapshot = engine.get_state(thread_id)
-            values = getattr(snapshot, "values", {}) or {}
-            status = values.get("status", "running")
-            st.markdown(f"**Status:** {status}")
-            st.markdown(f"**Thread ID:** {thread_id}")
+            values = st.session_state.get("workflow_values") or {}
+            if not values:
+                try:
+                    snapshot = engine.get_state(thread_id)
+                    values = getattr(snapshot, "values", {}) or {}
+                except Exception:
+                    values = {}
 
-            if getattr(snapshot, "interrupts", None):
-                st.warning("Human approval required before continuing.")
-                pending = values.get("pending_approval", {})
-                st.json(pending)
-                col1, col2 = st.columns(2)
-                if col1.button("Approve", key=f"approve_{thread_id}"):
-                    with st.spinner("Resuming workflow..."):
-                        res, cfg = engine.resume(thread_id, {"approved": True})
-                        st.session_state.workflow_result = res
-                        st.rerun()
-                if col2.button("Reject", key=f"reject_{thread_id}"):
-                    with st.spinner("Cancelling workflow..."):
-                        res, cfg = engine.resume(thread_id, {"approved": False})
-                        st.session_state.workflow_result = res
-                        st.rerun()
+            st.markdown(f"**Thread ID:** {thread_id}")
+            status = values.get("status", "running")
+            if status == "cancelled":
+                st.info("Run cancelled.")
+            elif status == "failed":
+                st.error("Run failed.")
+            elif status == "success":
+                st.success("Run completed successfully.")
+
+            _render_workflow_stepper(values)
+
+            events = values.get("events") or []
+            with st.expander("Workflow events", expanded=True):
+                if not events:
+                    st.caption("No events recorded yet.")
+                for event_text in reversed(events[-40:]):
+                    st.caption(event_text)
 
             st.markdown("#### Progress")
             st.write(f"Developer attempts: {values.get('developer_attempts', 0)}")
@@ -342,6 +472,54 @@ def main():
             if final_result:
                 st.markdown("#### Final Result")
                 st.json(final_result)
+
+            snapshot = None
+            try:
+                snapshot = engine.get_state(thread_id)
+            except Exception:
+                snapshot = None
+            if snapshot is not None and getattr(snapshot, "interrupts", None):
+                st.warning("Human approval required before continuing.")
+                pending = values.get("pending_approval", {})
+                st.json(pending)
+                col1, col2 = st.columns(2)
+                if col1.button("Approve", key=f"approve_{thread_id}"):
+                    st.session_state.workflow_running = True
+                    st.session_state.workflow_cancel_requested = False
+                    stream = engine.resume_stream(thread_id, {"approved": True})
+                    progress_box = st.empty()
+                    event_box = st.empty()
+                    try:
+                        for _chunk in stream:
+                            if st.session_state.get("workflow_cancel_requested"):
+                                engine.cancel(thread_id)
+                                break
+                            snapshot2 = engine.get_state(thread_id)
+                            values2 = getattr(snapshot2, "values", {}) or {}
+                            st.session_state.workflow_values = values2
+                            with progress_box.container():
+                                _render_workflow_stepper(values2)
+                                st.markdown(f"**Status:** {values2.get('status', 'running')}")
+                            with event_box.container():
+                                st.markdown("#### Live Workflow Events")
+                                for event_text in reversed(values2.get("events", [])[-20:]):
+                                    st.caption(event_text)
+                    except Exception as exc:
+                        st.error(f"Workflow failed: {exc}")
+                    finally:
+                        st.session_state.workflow_running = False
+                    st.rerun()
+                if col2.button("Reject", key=f"reject_{thread_id}"):
+                    st.session_state.workflow_running = True
+                    stream = engine.resume_stream(thread_id, {"approved": False})
+                    try:
+                        for _chunk in stream:
+                            pass
+                    except Exception as exc:
+                        st.error(f"Workflow failed: {exc}")
+                    finally:
+                        st.session_state.workflow_running = False
+                    st.rerun()
 
     # ---- History Page ----
     elif page == "History":

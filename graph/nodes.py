@@ -33,12 +33,18 @@ def product_manager_node(state: Dict[str, Any]) -> Dict[str, Any]:
         requirements = run_product_manager(request)
     except Exception as exc:  # pragma: no cover - surfaced to graph
         log.error("node_error", extra={"event_data": {"node": "product_manager", "error": str(exc)}})
-        return {"status": "failed", "error": f"Product Manager failed: {exc}", "requirements": ""}
+        return {
+            "status": "failed",
+            "error": f"Product Manager failed: {exc}",
+            "requirements": "",
+            "events": [f"Product Manager failed: {exc}"],
+        }
 
     new_state = {
         "requirements": requirements,
         "stage": "product_manager_complete",
         "status": "running",
+        "events": ["Product Manager completed: requirements generated."],
     }
     log.info("node_exit", extra={"event_data": {"node": "product_manager"}})
     return new_state
@@ -65,7 +71,11 @@ def developer_node(state: Dict[str, Any]) -> Dict[str, Any]:
         response = run_developer(prompt, feedback=feedback, existing_code=files)
     except Exception as exc:
         log.error("node_error", extra={"event_data": {"node": "developer", "error": str(exc)}})
-        return {"status": "failed", "error": f"Developer failed: {exc}"}
+        return {
+            "status": "failed",
+            "error": f"Developer failed: {exc}",
+            "events": [f"Developer failed: {exc}"],
+        }
 
     generated_files = extract_code_files(response)
     if not generated_files and response.strip():
@@ -98,6 +108,9 @@ def developer_node(state: Dict[str, Any]) -> Dict[str, Any]:
         "review_passed": False,
         "status": "running",
         "stage": "developer_complete",
+        "events": [
+            f"Developer completed attempt {developer_attempts}: {', '.join(sorted(generated_files.keys())) or 'no files'}"
+        ],
     }
     if "max_developer_attempts" not in state:
         new_state["max_developer_attempts"] = MAX_DEVELOPER_ATTEMPTS
@@ -151,6 +164,11 @@ def tester_node(state: Dict[str, Any]) -> Dict[str, Any]:
     if result.get("status") == "unavailable":
         failures = [summarize_test_result(result)]
 
+    event = (
+        "Tester: tests passed."
+        if tests_passed
+        else f"Tester: {result.get('status', 'failed')} (sandbox may be unavailable)."
+    )
     new_state = {
         "workspace_path": workspace,
         "test_strategy": test_strategy,
@@ -158,7 +176,8 @@ def tester_node(state: Dict[str, Any]) -> Dict[str, Any]:
         "tests_passed": tests_passed,
         "test_failures": failures,
         "stage": "tester_complete",
-        "status": "running" if tests_passed else "running",
+        "status": "running",
+        "events": [event],
     }
     log.info(
         "node_exit",
@@ -177,11 +196,12 @@ def approval_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """Interrupt before running generated tests when approval is required."""
     from utils.config import REQUIRES_TEST_APPROVAL
 
-    if not REQUIRES_TEST_APPROVAL:
-        return {}
+    requires = state.get("requires_test_approval", REQUIRES_TEST_APPROVAL)
+    if not requires:
+        return {"events": ["Approval not required; continuing."]}
 
     if state.get("approval_granted"):
-        return {}
+        return {"events": ["Approval already granted."]}
 
     approval_request = build_approval_request(
         "run_generated_tests",
@@ -201,6 +221,7 @@ def approval_node(state: Dict[str, Any]) -> Dict[str, Any]:
             "approval_granted": False,
             "error": "Human approval was rejected; tests were not run.",
             "stage": "approval_rejected",
+            "events": ["Human approval rejected; run cancelled."],
         }
 
     approved_request = approval_request.copy()
@@ -210,6 +231,7 @@ def approval_node(state: Dict[str, Any]) -> Dict[str, Any]:
         "approval_granted": True,
         "status": "running",
         "stage": "approval_granted",
+        "events": ["Human approval granted; continuing."],
     }
 
 
@@ -222,7 +244,11 @@ def code_reviewer_node(state: Dict[str, Any]) -> Dict[str, Any]:
         review_output = run_reviewer(code)
     except Exception as exc:
         log.error("node_error", extra={"event_data": {"node": "code_reviewer", "error": str(exc)}})
-        return {"status": "failed", "error": f"Code Reviewer failed: {exc}"}
+        return {
+            "status": "failed",
+            "error": f"Code Reviewer failed: {exc}",
+            "events": [f"Code Reviewer failed: {exc}"],
+        }
 
     sections = parse_review(review_output)
     bugs = sections.get("BUGS", "")
@@ -238,6 +264,11 @@ def code_reviewer_node(state: Dict[str, Any]) -> Dict[str, Any]:
         "review_passed": review_passed,
         "stage": "code_reviewer_complete",
         "status": "running",
+        "events": [
+            "Code Reviewer passed."
+            if review_passed
+            else f"Code Reviewer requested changes (cycle {review_cycles})."
+        ],
     }
     log.info(
         "node_exit",
@@ -255,12 +286,17 @@ def documentation_node(state: Dict[str, Any]) -> Dict[str, Any]:
         documentation = run_documentation(request, files=files)
     except Exception as exc:
         log.error("node_error", extra={"event_data": {"node": "documentation", "error": str(exc)}})
-        return {"status": "failed", "error": f"Documentation failed: {exc}"}
+        return {
+            "status": "failed",
+            "error": f"Documentation failed: {exc}",
+            "events": [f"Documentation failed: {exc}"],
+        }
 
     return {
         "documentation": documentation,
         "stage": "documentation_complete",
         "status": "running",
+        "events": ["Documentation completed."],
     }
 
 
@@ -337,4 +373,5 @@ def finalize_node(state: Dict[str, Any]) -> Dict[str, Any]:
         "status": final_status,
         "final_result": final_result,
         "stage": "complete",
+        "events": [f"Workflow finalized with status: {final_status}."],
     }

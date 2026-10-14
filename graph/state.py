@@ -1,6 +1,7 @@
 """Typed shared state for the BuildWithCrew LangGraph workflow."""
 
-from typing import Any, Dict, List, Optional, TypedDict
+import operator
+from typing import Annotated, Any, Dict, List, Optional, TypedDict
 
 
 class AgentState(TypedDict, total=False):
@@ -39,6 +40,10 @@ class AgentState(TypedDict, total=False):
     # Human approval
     pending_approval: Optional[Dict[str, Any]]
     approval_granted: bool
+    requires_test_approval: bool
+
+    # Observable events (merged across nodes)
+    events: Annotated[List[str], operator.add]
 
     # Final structured result
     final_result: Dict[str, Any]
