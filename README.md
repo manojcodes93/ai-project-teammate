@@ -357,4 +357,61 @@ Released under the [MIT License](LICENSE).
 
 ---
 
+## Agentic Architecture
+
+BuildWithCrew now uses a LangGraph `StateGraph` to coordinate the five existing agents:
+
+```text
+START -> Product Manager -> Developer -> Approval Gate -> Tester
+Tester -> Developer        (failed tests, bounded retries)
+Tester -> Code Reviewer    (tests pass)
+Code Reviewer -> Developer (actionable defects, bounded review cycles)
+Code Reviewer -> Documentation Agent
+Documentation Agent -> END
+```
+
+### AgentState (summary)
+
+- `request`, `requirements`, `files`, `workspace_path`
+- `tests_passed`, `test_results`, `test_failures`
+- `review_output`, `review_passed`, `review_cycles`
+- `documentation`
+- `developer_attempts`, `max_developer_attempts`, `max_review_cycles`
+- `thread_id`, `status`, `error`, approval fields, `final_result`
+
+### Tool permissions
+
+Tools are limited to a configured workspace root. They can list/read/write workspace files and run approved test commands in the sandbox. Path traversal, absolute paths, symlink-style escapes, arbitrary shell commands, host execution, and secret access are rejected. Writing over an existing file requires explicit approval depending on configuration.
+
+### Sandboxed execution
+
+Generated code never runs in the Streamlit process. `sandbox/executor.py` uses Docker with no network, CPU/memory/PID limits, timeout capture, read-only root, and a writable container `/workspace` tmpfs. Files are streamed into the container through stdin rather than a host mount. If Docker is unavailable, the executor raises `DockerUnavailableError`; it never falls back to host execution.
+
+### Retry and termination
+
+Tests and review cycles are bounded by `MAX_DEVELOPER_ATTEMPTS` (default 3) and `MAX_REVIEW_CYCLES` (default 2). The workflow terminates on success, exhausted retries, unrecoverable failure, cancellation, or rejection. Failed tests are not reported as success.
+
+### Human approval and checkpoints
+
+Approval gates use LangGraph `interrupt`/resume. Checkpoints use `langgraph-checkpoint-sqlite` in a dedicated database (`data/checkpoints.db`), separate from ordinary history (`data/history.db`). Ordinary project history remains available through the existing `history` table.
+
+### Running tests
+
+```bash
+python -m pytest tests -q
+python -m unittest discover -s tests
+```
+
+### Current limitations
+
+- Docker is required for real generated-code execution; without it tests report unavailable instead of executing.
+- HITL approval for file overwrites is enforced by explicit tool flags in automated contexts; the Streamlit graph gate primarily governs test execution when enabled.
+- The workflow asks the LLM to produce code blocks; more structured multi-file generation can be added without changing graph routing.
+
+### Deployment considerations
+
+- Provide `GROQ_API_KEY`; set `GROQ_MODEL` if the default is unavailable.
+- Docker must be available in the execution environment for sandboxed tests.
+- SQLite checkpoint/history storage is local; use a managed database for durable multi-instance deployments.
+
 ⭐ **Star this repo if you found it helpful!**

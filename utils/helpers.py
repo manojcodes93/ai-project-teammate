@@ -160,7 +160,48 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # Separate workflow metadata; never replaces existing history.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS workflow_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                thread_id TEXT NOT NULL,
+                request TEXT NOT NULL,
+                status TEXT NOT NULL,
+                file_count INTEGER DEFAULT 0,
+                developer_attempts INTEGER DEFAULT 0,
+                summary TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         conn.commit()
+
+
+def save_workflow_run(thread_id, request, status, file_count=0, developer_attempts=0, summary=None):
+    init_db()
+    with closing(_connect()) as conn:
+        conn.execute(
+            """
+            INSERT INTO workflow_runs
+                (thread_id, request, status, file_count, developer_attempts, summary)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (thread_id, request, status, file_count, developer_attempts, summary),
+        )
+        conn.commit()
+
+
+def get_workflow_runs(limit=50):
+    with closing(_connect()) as conn:
+        cursor = conn.execute(
+            """
+            SELECT id, thread_id, request, status, file_count, developer_attempts, summary, created_at
+            FROM workflow_runs
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        return cursor.fetchall()
 
 
 def save_to_history(project_idea, teammate, output):

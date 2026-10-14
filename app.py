@@ -18,6 +18,7 @@ from utils.helpers import (
 )
 from utils.agents import agent_color
 from utils.parsing import extract_code, parse_review, safe_block as _safe_block
+from runtime.engine import WorkflowEngine
 
 from ui.dashboard import (
     apply_custom_css,
@@ -35,7 +36,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-PAGES = ["Home", "AI Teammates", "Code Reviewer", "History"]
+PAGES = ["Home", "AI Teammates", "Code Reviewer", "Project Workflow", "History"]
 
 
 def _scroll_to(element_id):
@@ -249,6 +250,98 @@ def main():
                               margin: 0 0 8px 0;">Corrected Code</p>
                     """, unsafe_allow_html=True)
                     st.code(corrected, language=language)
+
+    # ---- Project Workflow Page ----
+    elif page == "Project Workflow":
+        st.markdown("""
+        <h1 style="font-size: 24px; font-weight: 700; color: #e6edf3; margin-bottom: 8px;">
+            Project Workflow
+        </h1>
+        <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">
+            Build a project with the five-agent LangGraph workflow.
+        </p>
+        """, unsafe_allow_html=True)
+
+        if "workflow_engine" not in st.session_state:
+            st.session_state.workflow_engine = WorkflowEngine()
+
+        engine = st.session_state.workflow_engine
+
+        request = st.text_area(
+            "Project request",
+            placeholder="Describe the project you want BuildWithCrew to build...",
+            key="workflow_request",
+            height=120,
+        )
+
+        if st.button("Build Project", type="primary", key="build_project_btn"):
+            if not request.strip():
+                st.warning("Please enter a project request.")
+            else:
+                with st.spinner("Running agentic workflow..."):
+                    try:
+                        thread_id, result, config = engine.start(request.strip())
+                        st.session_state.workflow_thread_id = thread_id
+                        st.session_state.workflow_result = result
+                    except Exception as exc:
+                        st.error(f"Workflow failed to start: {exc}")
+
+        thread_id = st.session_state.get("workflow_thread_id")
+        if thread_id:
+            snapshot = engine.get_state(thread_id)
+            values = getattr(snapshot, "values", {}) or {}
+            status = values.get("status", "running")
+            st.markdown(f"**Status:** {status}")
+            st.markdown(f"**Thread ID:** {thread_id}")
+
+            if getattr(snapshot, "interrupts", None):
+                st.warning("Human approval required before continuing.")
+                pending = values.get("pending_approval", {})
+                st.json(pending)
+                col1, col2 = st.columns(2)
+                if col1.button("Approve", key=f"approve_{thread_id}"):
+                    with st.spinner("Resuming workflow..."):
+                        res, cfg = engine.resume(thread_id, {"approved": True})
+                        st.session_state.workflow_result = res
+                        st.rerun()
+                if col2.button("Reject", key=f"reject_{thread_id}"):
+                    with st.spinner("Cancelling workflow..."):
+                        res, cfg = engine.resume(thread_id, {"approved": False})
+                        st.session_state.workflow_result = res
+                        st.rerun()
+
+            st.markdown("#### Progress")
+            st.write(f"Developer attempts: {values.get('developer_attempts', 0)}")
+            st.write(f"Tests passed: {values.get('tests_passed', False)}")
+            st.write(f"Review passed: {values.get('review_passed', False)}")
+            st.write(f"Stage: {values.get('stage', '')}")
+
+            files = values.get("files") or {}
+            if files:
+                st.markdown("#### Generated Files")
+                for name, content in files.items():
+                    with st.expander(name):
+                        st.code(content)
+
+            test_results = values.get("test_results") or {}
+            if test_results:
+                st.markdown("#### Test Results")
+                st.json(test_results)
+
+            review_output = values.get("review_output")
+            if review_output:
+                st.markdown("#### Code Review")
+                st.markdown(review_output)
+
+            documentation = values.get("documentation")
+            if documentation:
+                st.markdown("#### Documentation")
+                st.markdown(documentation)
+
+            final_result = values.get("final_result")
+            if final_result:
+                st.markdown("#### Final Result")
+                st.json(final_result)
 
     # ---- History Page ----
     elif page == "History":
