@@ -19,7 +19,6 @@ from utils.helpers import (
 from utils.agents import agent_color
 from utils.parsing import extract_code, parse_review, safe_block as _safe_block
 from runtime.engine import WorkflowEngine
-from sandbox.executor import docker_available
 
 from ui.dashboard import (
     apply_custom_css,
@@ -298,13 +297,6 @@ def main():
         </p>
         """, unsafe_allow_html=True)
 
-        if not docker_available():
-            st.warning(
-                "Docker is not available in this environment. Generated-code "
-                "tests will be reported as unavailable instead of running. "
-                "Install/start Docker to execute tests for real."
-            )
-
         if "workflow_engine" not in st.session_state:
             st.session_state.workflow_engine = WorkflowEngine()
 
@@ -335,7 +327,7 @@ def main():
             )
             st.session_state.workflow_approval_required = bool(approval_required)
         with settings_cols[2]:
-            st.caption("Sandbox: Docker-based, network disabled by default.")
+            st.caption("Checks: syntax only, no code execution.")
 
         running = bool(st.session_state.get("workflow_running", False))
         build_clicked = st.button("Build Project", type="primary", key="build_project_btn", disabled=running)

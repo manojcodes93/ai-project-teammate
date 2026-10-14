@@ -381,11 +381,14 @@ Documentation Agent -> END
 
 ### Tool permissions
 
-Tools are limited to a configured workspace root. They can list/read/write workspace files and run approved test commands in the sandbox. Path traversal, absolute paths, symlink-style escapes, arbitrary shell commands, host execution, and secret access are rejected. Writing over an existing file requires explicit approval depending on configuration.
+Tools are limited to a configured workspace root. They can list/read/write workspace files and run approved test syntax checks only. Path traversal, absolute paths, symlink-style escapes, arbitrary shell commands, host execution, and secret access are rejected. Writing over an existing file requires explicit approval depending on configuration.
 
-### Sandboxed execution
+### Code safety
 
-Generated code never runs in the Streamlit process. `sandbox/executor.py` uses Docker with no network, CPU/memory/PID limits, timeout capture, read-only root, and a writable container `/workspace` tmpfs. Files are streamed into the container through stdin rather than a host mount. If Docker is unavailable, the executor raises `DockerUnavailableError`; it never falls back to host execution.
+This project no longer uses Docker. Generated Python files are compiled with
+`syntax-only` checks using Python's built-in `compile()`; generated code is not
+executed on the host or in any container. This prevents accidental execution
+while still catching basic errors.
 
 ### Retry and termination
 
@@ -404,14 +407,14 @@ python -m unittest discover -s tests
 
 ### Current limitations
 
-- Docker is required for real generated-code execution; without it tests report unavailable instead of executing.
-- HITL approval for file overwrites is enforced by explicit tool flags in automated contexts; the Streamlit graph gate primarily governs test execution when enabled.
+- Only Python syntax checks are performed; there is no execution sandbox and no real test runner.
+- HITL approval for file overwrites is enforced by explicit tool flags in automated contexts; the Streamlit graph gate primarily governs approval nodes when enabled.
 - The workflow asks the LLM to produce code blocks; more structured multi-file generation can be added without changing graph routing.
 
 ### Deployment considerations
 
 - Provide `GROQ_API_KEY`; set `GROQ_MODEL` if the default is unavailable.
-- Docker must be available in the execution environment for sandboxed tests.
+- Generated code is never executed; deployment only needs Python and Groq API access.
 - SQLite checkpoint/history storage is local; use a managed database for durable multi-instance deployments.
 
 ⭐ **Star this repo if you found it helpful!**

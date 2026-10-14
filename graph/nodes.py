@@ -165,9 +165,9 @@ def tester_node(state: Dict[str, Any]) -> Dict[str, Any]:
         failures = [summarize_test_result(result)]
 
     event = (
-        "Tester: tests passed."
+        "Tester: syntax checks passed."
         if tests_passed
-        else f"Tester: {result.get('status', 'failed')} (sandbox may be unavailable)."
+        else f"Tester: syntax checks failed."
     )
     new_state = {
         "workspace_path": workspace,

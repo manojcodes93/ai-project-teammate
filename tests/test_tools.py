@@ -3,7 +3,7 @@ from pathlib import Path
 
 from tools.paths import safe_relative_path
 from tools.file_tools import write_project_file, read_project_file, list_project_files
-from tools.test_tools import _validate_command
+from tools.test_tools import check_python_syntax
 
 
 def test_path_traversal_rejected(tmp_path):
@@ -56,11 +56,14 @@ def test_valid_invalid_tool_arguments(tmp_path, monkeypatch):
     assert write_project_file(ws, "a.txt", "x")["ok"] is True
     assert list_project_files(ws)["files"] == ["a.txt"]
 
-    # Invalid runner
-    ok, err = _validate_command(["rm", "-rf", "/"])
-    assert ok is None and err
-    ok2, err2 = _validate_command(["python", "-m", "pytest", "-q"])
-    assert ok2 is not None and err2 is None
+    # Syntax check reports failures for bad Python.
+    bad = check_python_syntax({"bad.py": "def broken(:\n    pass"})
+    assert bad["ok"] is False
+    assert "bad.py" in bad["stderr"]
+
+    # Syntax check passes for valid Python.
+    good = check_python_syntax({"good.py": "def ok():\n    return 1\n"})
+    assert good["ok"] is True
 
 
 def test_workspace_path_validation(tmp_path):

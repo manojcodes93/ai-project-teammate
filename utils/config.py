@@ -28,18 +28,10 @@ def _env_bool(name, default=False):
         return default
 
 
-SANDBOX_IMAGE = os.getenv("SANDBOX_IMAGE", "python:3.11-slim")
-SANDBOX_TIMEOUT_SECONDS = int(os.getenv("SANDBOX_TIMEOUT_SECONDS", "60"))
-SANDBOX_CPU_LIMIT = os.getenv("SANDBOX_CPU_LIMIT", "1")
-SANDBOX_MEMORY_LIMIT = os.getenv("SANDBOX_MEMORY_LIMIT", "512m")
-SANDBOX_PIDS_LIMIT = int(os.getenv("SANDBOX_PIDS_LIMIT", "64"))
-
 MAX_DEVELOPER_ATTEMPTS = int(os.getenv("MAX_DEVELOPER_ATTEMPTS", "3"))
 MAX_REVIEW_CYCLES = int(os.getenv("MAX_REVIEW_CYCLES", "2"))
 
 REQUIRES_TEST_APPROVAL = _env_bool("REQUIRES_TEST_APPROVAL", False)
 REQUIRES_OVERWRITE_APPROVAL = _env_bool("REQUIRES_OVERWRITE_APPROVAL", True)
-
-DOCKER_REQUIRED = _env_bool("DOCKER_REQUIRED", False)
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
