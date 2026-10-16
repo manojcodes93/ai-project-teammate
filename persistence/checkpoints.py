@@ -33,8 +33,3 @@ class CheckpointManager:
 def create_checkpointer(path=None):
     manager = CheckpointManager(path=path)
     return manager.saver, manager
-
-
-def open_checkpointer(path=None):
-    """Return (saver, manager). Caller owns cleanup of manager."""
-    return create_checkpointer(path)

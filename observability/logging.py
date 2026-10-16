@@ -66,13 +66,6 @@ def get_logger(name):
     return logging.getLogger(f"buildwithcrew.{name}")
 
 
-def log_event(logger, event, level="info", **data):
-    # Avoid logging unrestricted environment contents.
-    safe_data = {k: v for k, v in data.items() if k not in ("env", "environment")}
-    logger_method = getattr(logger, level, logger.info)
-    logger_method(event, extra={"event_data": safe_data})
-
-
 class SensitiveFilter(logging.Filter):
     def filter(self, record):
         message = record.getMessage()

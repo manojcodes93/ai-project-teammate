@@ -1,6 +1,5 @@
 """LangGraph nodes for BuildWithCrew."""
 
-import os
 from typing import Any, Dict
 
 from agents.developer import run_developer
@@ -15,7 +14,7 @@ from tools.test_tools import run_project_tests, summarize_test_result
 from tools.workspace import create_workspace, write_files
 
 from utils.config import MAX_DEVELOPER_ATTEMPTS, MAX_REVIEW_CYCLES
-from utils.helpers import get_history, save_to_history, save_workflow_run
+from utils.helpers import save_to_history, save_workflow_run
 from observability.logging import get_logger
 from utils.parsing import extract_code_files, parse_review
 
@@ -135,9 +134,6 @@ def tester_node(state: Dict[str, Any]) -> Dict[str, Any]:
     workspace = state.get("workspace_path")
     if not workspace:
         workspace = str(create_workspace("project"))
-        from tools.workspace import write_files
-
-        write_files(workspace, files)
 
     # Write current files to the workspace.
     from tools.workspace import write_files
@@ -224,7 +220,6 @@ def approval_node(state: Dict[str, Any]) -> Dict[str, Any]:
             "events": ["Human approval rejected; run cancelled."],
         }
 
-    approved_request = approval_request.copy()
     approved_request = {"status": "approved", "approved": True, "details": approval_request.get("details")}
     return {
         "pending_approval": approved_request,
@@ -252,7 +247,12 @@ def code_reviewer_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
     sections = parse_review(review_output)
     bugs = sections.get("BUGS", "")
-    review_passed = "no bugs" in bugs.lower() or "no bugs found" in review_output.lower()
+    bugs_lower = bugs.lower()
+    review_passed = (
+        not bugs.strip()
+        or "no bugs found" in bugs_lower
+        or "no bugs found" in review_output.lower()
+    )
 
     review_cycles = int(state.get("review_cycles", 0))
     if not review_passed:
@@ -308,8 +308,6 @@ def finalize_node(state: Dict[str, Any]) -> Dict[str, Any]:
     if state.get("status") in {"failed", "cancelled"}:
         final_status = state.get("status")
     elif state.get("tests_passed") and state.get("review_passed", True):
-        final_status = "success"
-    elif state.get("tests_passed"):
         final_status = "success"
     else:
         final_status = "failed"

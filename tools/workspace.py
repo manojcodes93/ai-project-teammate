@@ -13,18 +13,6 @@ def create_workspace(label="project") -> Path:
     return workspace
 
 
-def cleanup_workspace(workspace) -> bool:
-    import shutil
-
-    path = Path(workspace)
-    if not path.exists():
-        return True
-    if not path.is_relative_to(Path(_config.WORKSPACE_ROOT).resolve()):
-        return False
-    shutil.rmtree(path, ignore_errors=True)
-    return not path.exists()
-
-
 def write_files(workspace, files):
     """Write a mapping of relative path -> content into a workspace."""
     root = resolve_workspace(workspace)

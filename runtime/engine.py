@@ -1,6 +1,5 @@
 """Execution helpers around the compiled LangGraph workflow."""
 
-import threading
 from uuid import uuid4
 
 from langgraph.types import Command
@@ -79,7 +78,3 @@ class WorkflowEngine:
     def is_interrupted(self, thread_id):
         snapshot = self.get_state(thread_id)
         return bool(getattr(snapshot, "interrupts", None))
-
-
-def thread_config(thread_id):
-    return {"configurable": {"thread_id": thread_id}}

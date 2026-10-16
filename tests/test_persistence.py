@@ -37,9 +37,6 @@ def test_approval_interruption_resume(tmp_path, monkeypatch):
     import utils.config as config
 
     monkeypatch.setattr(config, "REQUIRES_TEST_APPROVAL", True)
-
-    from unittest import mock
-
     monkeypatch.setattr("graph.nodes.run_product_manager", lambda request, context=None: "req")
     monkeypatch.setattr(
         "graph.nodes.run_developer",
@@ -53,7 +50,6 @@ def test_approval_interruption_resume(tmp_path, monkeypatch):
         lambda workspace, command=None, files=None, sandbox=None: {"ok": True, "status": "passed", "exit_code": 0},
     )
 
-    from langgraph.types import Command
     from runtime.engine import WorkflowEngine
     from persistence.checkpoints import CheckpointManager
 
@@ -66,7 +62,6 @@ def test_approval_interruption_resume(tmp_path, monkeypatch):
         # Resume approved
         res, cfg = engine.resume(thread_id, {"approved": True})
         assert res.get("status") in {"success", "running"}
-        engine.close() if False else None
     finally:
         manager.close()
         engine.close()

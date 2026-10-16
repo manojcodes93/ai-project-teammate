@@ -106,10 +106,37 @@ ai-project-teammate/
 │   └── logo.png
 │
 ├── data/                           # SQLite storage (git-ignored)
-│   └── history.db
+│   ├── history.db
+│   ├── checkpoints.db
+│   └── workspaces/
+│
+├── graph/                          # LangGraph workflow definition
+│   ├── state.py
+│   ├── nodes.py
+│   ├── routing.py
+│   └── workflow.py
+│
+├── observability/                  # Structured logging
+│   └── logging.py
+│
+├── persistence/                    # LangGraph SQLite checkpointer
+│   └── checkpoints.py
+│
+├── runtime/                        # Workflow execution engine
+│   └── engine.py
 │
 ├── tests/
-│   └── test_smoke.py               # Unit smoke tests
+│   ├── test_graph.py
+│   ├── test_persistence.py
+│   ├── test_smoke.py
+│   └── test_tools.py
+│
+├── tools/                          # Controlled file / tool layer
+│   ├── file_tools.py
+│   ├── paths.py
+│   ├── summary_tools.py
+│   ├── test_tools.py
+│   └── workspace.py
 │
 ├── ui/
 │   ├── __init__.py
@@ -118,6 +145,7 @@ ai-project-teammate/
 └── utils/
     ├── __init__.py
     ├── agents.py                   # Teammate metadata (single source)
+    ├── config.py                   # Application configuration
     ├── helpers.py                  # Groq client + SQLite helpers
     ├── parsing.py                  # Pure reviewer-output parsing helpers
     └── prompts.py                  # Agent system prompts
@@ -192,9 +220,16 @@ All of the above can be supplied either as environment variables / `.env` or in
 
 ## Dependencies
 ```
-streamlit
-groq
-python-dotenv
+streamlit>=1.45.0
+groq>=0.37.0
+python-dotenv>=1.0.0
+langgraph>=1.2.0
+langchain-core>=1.6.0
+langchain-groq>=1.1.0
+langgraph-checkpoint-sqlite>=3.1.0
+pytest>=9.0.0
+pytest-mock>=3.16.0
+pydantic>=2.14.0
 ```
 
 Install all with:

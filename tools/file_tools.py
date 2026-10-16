@@ -1,7 +1,5 @@
 """File operations scoped to a designated workspace."""
 
-from pathlib import Path
-
 from tools.paths import resolve_workspace, safe_relative_path
 
 
@@ -60,10 +58,6 @@ def write_project_file(workspace, relative_path, content, overwrite=False):
         "bytes_written": len(str(content).encode("utf-8")),
         "overwritten": target.exists() and overwrite,
     }
-
-
-def tool_list_files(workspace):
-    return list_project_files(workspace)
 
 
 def tool_read_file(workspace, path):

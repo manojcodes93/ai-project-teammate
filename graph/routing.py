@@ -25,6 +25,6 @@ def route_after_review(state):
         return "finalize_failure"
     if state.get("review_passed", False):
         return "documentation"
-    if review_cycles <= max_review_cycles:
+    if review_cycles < max_review_cycles:
         return "developer"
     return "finalize_failure"

@@ -1,5 +1,5 @@
 import pytest
-from pathlib import Path
+
 
 from tools.paths import safe_relative_path
 from tools.file_tools import write_project_file, read_project_file, list_project_files

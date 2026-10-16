@@ -297,8 +297,15 @@ def main():
         </p>
         """, unsafe_allow_html=True)
 
-        if "workflow_engine" not in st.session_state:
-            st.session_state.workflow_engine = WorkflowEngine()
+        # Close any existing engine to release the SQLite connection before
+        # creating a fresh one.
+        existing_engine = st.session_state.get("workflow_engine")
+        if existing_engine is not None:
+            try:
+                existing_engine.close()
+            except Exception:
+                pass
+        st.session_state.workflow_engine = WorkflowEngine()
 
         engine = st.session_state.workflow_engine
 
@@ -401,11 +408,23 @@ def main():
                     st.error(f"Workflow failed: {exc}")
                 finally:
                     st.session_state.workflow_running = False
+                    # Release the SQLite connection held by the engine.
+                    try:
+                        st.session_state.workflow_engine.close()
+                    except Exception:
+                        pass
+                    st.session_state.workflow_engine = None
 
                 st.rerun()
 
         thread_id = st.session_state.get("workflow_thread_id")
         if thread_id:
+            # Recreate engine if it was closed after a previous workflow run.
+            engine = st.session_state.get("workflow_engine")
+            if engine is None:
+                st.session_state.workflow_engine = WorkflowEngine()
+                engine = st.session_state.workflow_engine
+
             values = st.session_state.get("workflow_values") or {}
             if not values:
                 try:

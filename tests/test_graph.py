@@ -1,11 +1,9 @@
 """Tests for the LangGraph workflow."""
 
-from unittest import mock
-
 import pytest
 
 
-from graph.workflow import build_workflow, compile_workflow
+from graph.workflow import compile_workflow
 from persistence.checkpoints import CheckpointManager
 from utils.config import MAX_DEVELOPER_ATTEMPTS
 
