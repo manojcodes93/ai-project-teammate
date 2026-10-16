@@ -10,3 +10,5 @@ __pycache__/
 data/history.db
 data/checkpoints.db
 data/workspaces/
+data/*.db-shm
+data/*.db-wal

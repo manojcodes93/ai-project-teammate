@@ -359,6 +359,29 @@ def main():
                 event_box = st.empty()
                 result_container = st.empty()
 
+                # Render an initial state immediately so the user sees progress
+                # even before the first LangGraph chunk is yielded (the first
+                # node makes an LLM call which can take 10-60+ seconds).
+                st.session_state.workflow_values = {
+                    "status": "running",
+                    "stage": "starting",
+                    "events": ["Starting workflow..."],
+                }
+                with progress_box.container():
+                    _render_workflow_stepper(st.session_state.workflow_values)
+                    st.markdown("**Status:** starting")
+                    st.markdown("**Stage:** starting")
+                with event_box.container():
+                    st.markdown("#### Live Workflow Events")
+                    st.caption("Starting workflow...")
+
+                # Honor a cancel requested before the stream even starts.
+                if st.session_state.get("workflow_cancel_requested"):
+                    engine.cancel(thread_id)
+                    st.session_state.workflow_running = False
+                    st.session_state.workflow_engine = None
+                    st.rerun()
+
                 try:
                     for _chunk in stream:
                         if st.session_state.get("workflow_cancel_requested"):
